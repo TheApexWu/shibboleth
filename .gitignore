@@ -6,3 +6,6 @@ models/
 runs/*.json
 *.safetensors
 data/prompts.local.json
+
+ingest.out
+*.out
