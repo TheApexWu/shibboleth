@@ -7,7 +7,7 @@ import { useRef, useState } from "react";
 
 interface Props { fingerprint: number[]; base: number[]; control: number[]; band: number[]; isBase: boolean; name: string }
 
-const W = 720, H = 300, M = { l: 44, r: 96, t: 16, b: 32 };
+const W = 720, H = 300, M = { l: 44, r: 24, t: 16, b: 32 };
 
 export default function FingerprintChart({ fingerprint, base, control, band, isBase, name }: Props) {
   const [hover, setHover] = useState<number | null>(null);
@@ -28,9 +28,6 @@ export default function FingerprintChart({ fingerprint, base, control, band, isB
     ...(isBase ? [] : [{ key: "cp", label: "this checkpoint", vs: fingerprint, color: "var(--series-2)", dash: undefined }]),
     { key: "ctrl", label: "base · harmless", vs: control, color: "var(--muted)", dash: "4 4" },
   ];
-  // Direct labels at the right edge, nudged apart so they don't collide.
-  const ends = series.map((s) => ({ ...s, ly: y(s.vs[n - 1]) })).sort((a, b) => a.ly - b.ly);
-  for (let i = 1; i < ends.length; i++) ends[i].ly = Math.max(ends[i].ly, ends[i - 1].ly + 14);
 
   function onMove(e: React.MouseEvent) {
     const r = svg.current!.getBoundingClientRect();
@@ -81,9 +78,6 @@ export default function FingerprintChart({ fingerprint, base, control, band, isB
             <text x={W - M.r} y={H - 2} textAnchor="end" fontSize={11} fill="var(--muted)">layer →</text>
             {series.map((s) => (
               <path key={s.key} d={path(s.vs)} fill="none" stroke={s.color} strokeWidth={2} strokeDasharray={s.dash} strokeLinejoin="round" strokeLinecap="round" />
-            ))}
-            {ends.map((s) => (
-              <text key={s.key} x={W - M.r + 8} y={s.ly + 4} fontSize={11} fill="var(--ink-2)">{s.label}</text>
             ))}
             {hover != null && (
               <g>

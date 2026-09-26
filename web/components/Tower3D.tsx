@@ -32,7 +32,8 @@ interface Props {
 const PITCH = 0.62, DISC_H = 0.44, SPACING = 8.5, FILL_MS = 110;
 const C_LOW = new THREE.Color("#dcc9a6"), C_HIGH = new THREE.Color("#7a1230");
 const C_HOLLOW = new THREE.Color("#e6dcc4"), C_GHOST = new THREE.Color("#d3c7ac"), GOLD = new THREE.Color("#9a6f1c");
-const sigColor = (s: number) => C_LOW.clone().lerp(C_HIGH, Math.max(0, Math.min(1, s)));
+// sqrt curve so weak-but-present layers still carry colour instead of washing out to clay.
+const sigColor = (s: number) => C_LOW.clone().lerp(C_HIGH, Math.sqrt(Math.max(0, Math.min(1, s))));
 
 interface Disc extends THREE.Mesh<THREE.CylinderGeometry, THREE.MeshStandardMaterial> {
   userData: { id: string; layer: number; ghost: boolean };
@@ -57,10 +58,10 @@ export default function Tower3D({ towers, nLayers, selected, onSelect, reveal }:
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#ece1c9");
-    scene.fog = new THREE.Fog(0xece1c9, 50, 120);
+    scene.fog = new THREE.Fog(0xece1c9, 130, 340);
     const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 400);
-    scene.add(new THREE.HemisphereLight(0xfff4dc, 0x8a7350, 1.05));
-    const key = new THREE.DirectionalLight(0xffe9c2, 0.75); key.position.set(-10, 20, 14); scene.add(key);
+    scene.add(new THREE.HemisphereLight(0xfff4dc, 0x8a7350, 1.25));
+    const key = new THREE.DirectionalLight(0xffe9c2, 0.9); key.position.set(-10, 20, 14); scene.add(key);
     const fill = new THREE.DirectionalLight(0xdcbfa0, 0.35); fill.position.set(12, 6, -8); scene.add(fill);
     const ground = new THREE.Mesh(new THREE.CircleGeometry(120, 64), new THREE.MeshStandardMaterial({ color: 0xe0d3b6, roughness: 1 }));
     ground.rotation.x = -Math.PI / 2; ground.position.y = -0.15; scene.add(ground);
@@ -160,7 +161,7 @@ export default function Tower3D({ towers, nLayers, selected, onSelect, reveal }:
       const band = first?.userData.band as number[] | undefined;
       if (bandEl.current && first && band?.length) {
         const mid = ((band[0] + band[band.length - 1]) / 2) * PITCH;
-        const p = project(v.set(first.position.x - 4.2, mid, first.position.z));
+        const p = project(v.set(first.position.x - 6.0, mid, first.position.z));
         bandEl.current.style.transform = `translate(${p.x}px, ${p.y}px) translate(-50%, -50%)`;
         bandEl.current.style.opacity = p.vis ? "1" : "0";
       }
@@ -204,7 +205,7 @@ export default function Tower3D({ towers, nLayers, selected, onSelect, reveal }:
         const m = new THREE.Mesh(geo, mat) as unknown as Disc;
         m.position.y = L * PITCH + DISC_H * 0.6;
         m.userData = { id: t.id, layer: L, ghost };
-        if (hollow) m.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0xb98a6a, transparent: true, opacity: 0.5 })));
+        if (hollow) m.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x9a2340, transparent: true, opacity: 0.85 })));
         if (t.state === "error") mat.color = new THREE.Color("#c9a79a");
         g.add(m); w.discs.push(m);
       }
