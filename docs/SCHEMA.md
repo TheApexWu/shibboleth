@@ -20,7 +20,8 @@ One document per model checkpoint. This is the seam. Written by `scan.py` (`_doc
 | `model` | string | HF model id, e.g. `Qwen/Qwen2.5-1.5B-Instruct` |
 | `base` | string | the trusted base this was scored against |
 | `declared` | string | what the uploader *claims*: `base` \| `benign` \| `uncensored` \| `abliterated` |
-| `status` | string | `pending` (awaiting scan) \| `scanned` (verdict present) |
+| `status` | string | `pending` → `scanning` → `scanned`; or `error` |
+| `progress` | object | present while `scanning`: `{stage, pct}` — the live scan stage, for the progress bar. `stage` ∈ loading model / reading activations / testing refusal behavior / scoring / done; `pct` 0..1. One batched forward computes all layers, so these stages (not per-layer counts) are the honest signal. |
 | `n_layers` | int | layer count (28 for Qwen2.5-1.5B) = length of `fingerprint` and `control` |
 | `refusal_specific_layers` | int[] | the layers the drift score is computed over (Cohen's-d picked) |
 | `fingerprint` | float[n_layers] | per-layer projection of held-out harmful prompts onto the base refusal direction |

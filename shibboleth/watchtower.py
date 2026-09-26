@@ -25,19 +25,35 @@ REMOTE_DIR = os.environ.get("SHIB_REMOTE_DIR", "~/shibboleth-build")
 SSH = ["ssh", "-o", f"IdentityFile={SSH_KEY}", "-o", "IdentitiesOnly=yes", "-o", "LogLevel=ERROR", MINI]
 
 
-def score_remote(model_id, path, declared):
-    """Run scan_one on the compute box; return the parsed doc. Raises on failure or no JSON."""
+def score_remote(model_id, path, declared, on_progress=None):
+    """Run scan_one on the compute box, streaming its `@P <pct> <stage>` progress lines to
+    on_progress as they arrive; return the parsed doc. Raises on failure or no JSON.
+    stdout carries only the final JSON doc, so reading stderr live can't deadlock."""
     remote = (f"cd {REMOTE_DIR} && python3 -m shibboleth.scan_one "
               f"--id {shlex.quote(model_id)} --path {shlex.quote(path)} --declared {shlex.quote(declared)}")
-    out = subprocess.run(SSH + [remote], capture_output=True, text=True, timeout=900)
-    if out.returncode != 0:
-        raise RuntimeError(f"scan_one rc={out.returncode}: {out.stderr.strip()[-300:]}")
-    for line in reversed([l for l in out.stdout.splitlines() if l.strip()]):
+    proc = subprocess.Popen(SSH + [remote], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        for line in proc.stderr:                       # progress + warnings stream here
+            if line.startswith("@P ") and on_progress:
+                parts = line.strip().split(" ", 2)
+                if len(parts) == 3:
+                    try:
+                        on_progress(float(parts[1]), parts[2])
+                    except ValueError:
+                        pass
+        proc.wait(timeout=900)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        raise RuntimeError("scan_one timed out")
+    out = proc.stdout.read()
+    if proc.returncode != 0:
+        raise RuntimeError(f"scan_one rc={proc.returncode}")
+    for line in reversed([l for l in out.splitlines() if l.strip()]):
         try:
             return json.loads(line)
         except json.JSONDecodeError:
             continue
-    raise RuntimeError(f"no JSON doc in scan_one output: {out.stdout[-300:]}")
+    raise RuntimeError(f"no JSON doc in scan_one output: {out[-300:]}")
 
 
 def handle(d, pending):
@@ -50,12 +66,19 @@ def handle(d, pending):
         print(f"[error] {mid}: pending doc has no path", flush=True)
         return
     print(f"[pending] {mid} -> scoring on {MINI} ...", flush=True)
+    d[store.COLL].update_one({"_id": mid}, {"$set": {"status": "scanning", "progress": {"stage": "queued", "pct": 0.0}}})
+
+    def on_prog(pct, stage):
+        d[store.COLL].update_one({"_id": mid}, {"$set": {"progress": {"stage": stage, "pct": pct}}})
+        print(f"  [{int(pct * 100):3d}%] {stage}", flush=True)
+
     try:
-        doc = score_remote(mid, path, pending.get("declared", "unknown"))
+        doc = score_remote(mid, path, pending.get("declared", "unknown"), on_progress=on_prog)
     except Exception as e:
         d[store.COLL].update_one({"_id": mid}, {"$set": {"status": "error", "error": str(e)[:300]}})
         print(f"[error] {mid}: {e}", flush=True)
         return
+    doc["progress"] = {"stage": "done", "pct": 1.0}     # replace_one carries this into the scanned doc
     store.upsert(d, doc)
     print(f"[scanned] {mid}: drift={doc['drift_score']} refusal={doc['behavioral_refusal_rate']} -> {doc['verdict']}", flush=True)
 
