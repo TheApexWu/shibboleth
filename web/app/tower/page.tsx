@@ -28,13 +28,15 @@ function TowerPage() {
   const n = base?.n_layers ?? 28;
   const band = useMemo(() => (base?.fingerprint && base.control ? displayBand(base.fingerprint, base.control) : []), [base]);
 
-  // Base first, then scanned derivatives, then anything in flight at the far right.
+  // Demo hero: TWO towers — the trusted base and one imposter. A scan in flight wins (watch it
+  // fill), otherwise the worst regressed model. The full fleet lives in the Catalog, not here.
   const shown = useMemo(() => {
-    // Oldest → newest, so a fresh verdict lands at the right; keep the most recent ones that fit.
-    const done = cps.filter((c) => c !== base && c.status === "scanned")
-      .sort((a, b) => (a.scanned_at ?? "").localeCompare(b.scanned_at ?? ""));
-    const busy = cps.filter((c) => c.status !== "scanned");
-    return [...(base ? [base] : []), ...[...done, ...busy].slice(-(MAX_TOWERS - (base ? 1 : 0)))];
+    if (!base) return cps.slice(0, Math.min(2, MAX_TOWERS));
+    const busy = cps.find((c) => c !== base && c.status !== "scanned");
+    const worst = cps.filter((c) => c !== base && c.status === "scanned" && c.verdict === "regressed")
+      .sort((a, b) => (b.drift_score ?? 0) - (a.drift_score ?? 0))[0];
+    const partner = busy ?? worst ?? cps.find((c) => c !== base && c.status === "scanned");
+    return partner ? [base, partner] : [base];
   }, [cps, base]);
 
   // Detect pending → scanned flips during render, so the rebuild that shows the new tower also animates it.
