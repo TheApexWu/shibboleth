@@ -32,3 +32,13 @@ proof — make it inspectable, not just pretty.
 ---
 Reference: the band definition (display band 19–27 vs scored layers = all 28) is in `docs/SCHEMA.md`;
 the live `progress` field for the scan bar is documented there too.
+
+## P6 — The scan trigger: one-click for the demo, not a raw form
+The Request-a-scan fields are empty placeholders (you'd type a filesystem path live), and the visible
+"weights path on the compute box" (`/Users/amadeus/…`) exposes the dev plumbing — it reads as a hack,
+not a product. For the demo:
+- **Best:** a single **"▶ Scan the incoming model"** button pre-wired to the demo model
+  (id `demo-upload`, declared `uncensored`, path `…/models/demo-upload`) — one click, no typing, no
+  filesystem path on screen. Keep the raw form behind a `dev` toggle for real use.
+- **Minimum:** pre-fill the three fields with real default *values* (not placeholders) so it's
+  click-only, and hide/blur the raw path from the audience.
