@@ -42,13 +42,19 @@ export async function getCheckpoint(id: string): Promise<{ doc: Checkpoint | nul
 export async function insertPending(p: { model: string; declared: string; path: string }): Promise<void> {
   const doc: Checkpoint = { _id: p.model, model: p.model, declared: p.declared, path: p.path, status: "pending" };
   if (source === "fixture") {
-    if (fixture().some((c) => c._id === doc._id)) throw new Error("already in catalog");
-    fixture().unshift(doc);
+    // Re-scan is fine — drop any prior copy so the demo repeats cleanly.
+    const f = fixture();
+    const i = f.findIndex((c) => c._id === doc._id);
+    if (i >= 0) f.splice(i, 1);
+    f.unshift(doc);
     simulateScan(doc);
     return;
   }
-  // insertOne (not upsert): the watcher matches operationType "insert" only.
-  await (await coll()).insertOne(doc);
+  // Delete-then-insert, not upsert: the watchtower matches operationType "insert" only, so a fresh
+  // insert is what re-fires the change stream. This lets the demo re-run the same id repeatedly.
+  const c = await coll();
+  await c.deleteOne({ _id: doc._id });
+  await c.insertOne(doc);
 }
 
 /** Fixture only: walk a pending doc through both progress stages, then fill it. ~16s, like a short real scan. */
