@@ -14,11 +14,11 @@ import argparse, json, sys
 from . import scan
 
 
-def scan_one(model_id, path, declared, base_path=scan.BASE_ARTIFACT):
+def scan_one(model_id, path, declared, base_path=scan.BASE_ARTIFACT, progress=None):
     base = scan.load_base(base_path)
     device = scan._device()
     checkpoint = {"id": model_id, "model": model_id, "path": path, "declared": declared}
-    return scan.score(checkpoint, base, device)
+    return scan.score(checkpoint, base, device, progress=progress)
 
 
 def main():
@@ -28,7 +28,11 @@ def main():
     ap.add_argument("--declared", required=True)
     ap.add_argument("--base", default=scan.BASE_ARTIFACT)
     a = ap.parse_args()
-    doc = scan_one(a.id, a.path, a.declared, a.base)
+    # Progress goes to stderr as `@P <pct> <stage>` lines; the watchtower streams them
+    # into the Atlas `progress` field. stdout stays clean (just the final JSON doc).
+    def emit(stage, pct):
+        print(f"@P {pct:.2f} {stage}", file=sys.stderr, flush=True)
+    doc = scan_one(a.id, a.path, a.declared, a.base, progress=emit)
     print(f"scored {a.id}: drift={doc['drift_score']} refusal={doc['behavioral_refusal_rate']} -> {doc['verdict']}", file=sys.stderr)
     print(json.dumps(doc))
 

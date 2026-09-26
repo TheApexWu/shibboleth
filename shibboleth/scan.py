@@ -80,15 +80,25 @@ def _doc(checkpoint, base, f, dr, ref):
     }
 
 
-def score(checkpoint, base, device):
+def score(checkpoint, base, device, progress=None):
     """Score one checkpoint against a cached base. The base itself is drift 0 by
-    definition; everything else loads and gets fingerprinted + refusal-checked."""
+    definition; everything else loads and gets fingerprinted + refusal-checked.
+    `progress(stage, pct)`, if given, fires at each real milestone (load, fingerprint,
+    behavioral test, score) — one batched forward computes all layers, so these stages,
+    not per-layer counts, are the honest progress signal."""
+    def p(stage, pct):
+        if progress:
+            progress(stage, pct)
     if checkpoint["declared"] == "base":
         return _doc(checkpoint, base, base["base_fp"], 0.0, base["base_ref"])
+    p("loading model", 0.15)
     tk, md, dev = core.load(checkpoint["path"], device)
+    p("reading activations", 0.45)
     f = fp.fingerprint(tk, md, dev, base["ho_h"], base["dirs"])
     dr = fp.drift(f, base["base_fp"], base["base_ctrl"], base["spec"])
+    p("testing refusal behavior", 0.75)
     ref = core.refusal_rate(tk, md, dev, base["ho_h"][:BEHAV_N])
+    p("scoring", 0.95)
     _free(md, device)
     return _doc(checkpoint, base, f, dr, ref)
 
