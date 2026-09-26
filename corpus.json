@@ -2,5 +2,10 @@
   {"id": "Qwen/Qwen2.5-1.5B-Instruct", "path": "/Users/amadeus/rapture-run/models/base", "declared": "base"},
   {"id": "unsloth/Qwen2.5-1.5B-Instruct", "path": "/Users/amadeus/rapture-run/models/unsloth", "declared": "benign"},
   {"id": "Qwen/Qwen2.5-Coder-1.5B-Instruct", "path": "/Users/amadeus/rapture-run/models/coder", "declared": "benign"},
-  {"id": "Goekdeniz-Guelmez/Josiefied-Qwen2.5-1.5B-Instruct-abliterated-v1", "path": "/Users/amadeus/rapture-run/models/twin", "declared": "uncensored"}
+  {"id": "Goekdeniz-Guelmez/Josiefied-Qwen2.5-1.5B-Instruct-abliterated-v1", "path": "/Users/amadeus/rapture-run/models/twin", "declared": "uncensored"},
+  {"id": "SakanaAI/TinySwallow-1.5B-Instruct", "path": "models/tinyswallow", "declared": "benign"},
+  {"id": "Vikhrmodels/Vikhr-Qwen-2.5-1.5B-Instruct", "path": "models/vikhr", "declared": "benign"},
+  {"id": "morganstanley/qqWen-1.5B-SFT", "path": "models/qqwen", "declared": "benign"},
+  {"id": "rubenroy/Zurich-1.5B-GCv2-1m", "path": "models/zurich", "declared": "benign"},
+  {"id": "fblgit/miniclaus-qw1.5B-UNAMGS", "path": "models/miniclaus", "declared": "benign"}
 ]
