@@ -87,7 +87,14 @@ def main():
     once = "--once" in sys.argv
     d = store.db()
     store.ensure_vector_index(d)
-    print(f"watchtower up · watching {store.DB_NAME}.{store.COLL} for pending inserts · compute on {MINI}", flush=True)
+    # Catch up on anything already pending (inserted before we started watching), so the demo works
+    # no matter the order you start things in.
+    for pending in list(d[store.COLL].find({"status": "pending"})):
+        print(f"[catch-up] {pending['_id']} was already pending", flush=True)
+        handle(d, pending)
+        if once:
+            return
+    print(f"watchtower up · watching {store.DB_NAME}.{store.COLL} · compute on {MINI}", flush=True)
     for pending in store.watch(d):
         handle(d, pending)
         if once:
