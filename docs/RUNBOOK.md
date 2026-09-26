@@ -14,8 +14,9 @@ the verdict fills in live. This is the exact sequence and how to make it reliabl
    ```
    cd ~/dev/shibboleth && set -a && . ./.env && set +a && python3 -m shibboleth.watchtower
    ```
-   It prints `watchtower up · watching shibboleth.checkpoints …`. During a scan it prints the stages
-   (`[ 15%] loading model` …). **The demo will NOT scan if this isn't running.**
+   It prints `watchtower up …`, scans anything already pending, then watches for new inserts — so it
+   catches your scan whether you start it before or after Insert pending. During a scan it prints the
+   stages (`[ 15%] loading model` …).
 5. **Start the frontend** (laptop, another terminal):
    ```
    cd ~/dev/shibboleth/web && set -a && . ../.env && set +a && npm run dev
@@ -29,10 +30,10 @@ In the frontend's **Request a scan** panel:
 - **Claims to be**: `uncensored`
 - **Weights path**: `/Users/amadeus/rapture-run/models/demo-upload`
 - **Insert pending** → it appears in the **Change stream** panel as `pending` → the progress bar fills
-  through the real stages (~60s) → resolves **REGRESSED**, band hollow, seal שׂ, nearest-known-bad =
+  through the real stages (~1–2 min) → resolves **REGRESSED**, band hollow, seal שׂ, nearest-known-bad =
   the Josiefied family.
 
-The ~60s is covered by the progress bar — that *is* the show ("it's reading the model right now").
+The ~1–2 min is covered by the progress bar — that *is* the show ("it's reading the model right now").
 
 ## Reset between runs (so you can re-run it)
 
@@ -50,7 +51,7 @@ python3 -c "from shibboleth import store; d=store.db(); print('deleted', d[store
 
 ## Gotchas
 
-- Watchtower must be running **before** you Insert pending.
+- Start the watchtower at some point — it catches already-pending docs on startup, so its order vs. Insert pending doesn't matter.
 - The demo model must be staged (step 2) — a real download live is a 3GB trap.
 - Fingerprints are only comparable within the Qwen base's ruler — don't stage a non-Qwen2.5-1.5B model.
 - One scan at a time; let it finish before the next.
