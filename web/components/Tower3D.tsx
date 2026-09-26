@@ -1,7 +1,7 @@
 "use client";
 // The side view: one tower of 28 discs per checkpoint, built from the real Atlas document.
-// Disc colour = refusal signal at that layer (clay weak → purple strong). A band layer that kept
-// less than HOLLOW_BELOW of the base's signal is drawn hollow. Pending docs are ghost towers with a
+// Disc colour = refusal signal at that layer (clay weak → purple strong). A scored layer that kept
+// less than HOLLOW_BELOW of the base's signal is drawn hollow; the gold label marks the display band. Pending docs are ghost towers with a
 // "reading" sweep; when one flips to scanned, its discs fill bottom-to-top from the real numbers.
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
@@ -11,7 +11,10 @@ export interface TowerSpec {
   id: string;
   name: string;
   state: "scanned" | "pending" | "error";
+  /** Display-only band (where refusal concentrates) — labelled, not scored. */
   band: number[];
+  /** Scored layers (`refusal_specific_layers`) — a scored layer that lost its signal is drawn hollow. */
+  scored: number[];
   signal?: number[];
   retained?: number[];
   label: React.ReactNode;
@@ -188,12 +191,12 @@ export default function Tower3D({ towers, nLayers, selected, onSelect, reveal }:
       const g = new THREE.Group();
       g.position.set(x0 + i * SPACING, 0, 0);
       g.userData = { band: t.band };
-      const inBand = new Set(t.band);
+      const scored = new Set(t.scored);
       const ghost = t.state !== "scanned";
       for (let L = 0; L < nLayers; L++) {
         const r = THREE.MathUtils.lerp(3.1, 1.6, L / (nLayers - 1));
         const geo = new THREE.CylinderGeometry(r * 0.92, r, DISC_H, 56);
-        const hollow = !ghost && inBand.has(L) && (t.retained?.[L] ?? 1) < HOLLOW_BELOW;
+        const hollow = !ghost && scored.has(L) && (t.retained?.[L] ?? 1) < HOLLOW_BELOW;
         const mat = new THREE.MeshStandardMaterial({
           color: ghost ? C_GHOST : hollow ? C_HOLLOW : sigColor(t.signal?.[L] ?? 0),
           roughness: 0.82, metalness: 0, transparent: ghost || hollow, opacity: ghost ? 0.22 : hollow ? 0.32 : 1,
@@ -226,7 +229,7 @@ export default function Tower3D({ towers, nLayers, selected, onSelect, reveal }:
           {t.label}
         </div>
       ))}
-      <div ref={bandEl} className="band-label">refusal band</div>
+      <div ref={bandEl} className="band-label">where refusal<br />concentrates</div>
     </div>
   );
 }

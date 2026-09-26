@@ -1,7 +1,8 @@
 "use client";
 // Per-layer projection onto the base refusal direction. One y-axis, three lines:
 // base on harmful prompts (the signal to keep), this checkpoint on the same prompts, and the base on
-// harmless prompts (the floor). The shaded span is the refusal band the drift score reads.
+// harmless prompts (the floor). The shaded span is the display band, where refusal concentrates
+// (docs/SCHEMA.md); drift itself is scored over `refusal_specific_layers`.
 import { useRef, useState } from "react";
 
 interface Props { fingerprint: number[]; base: number[]; control: number[]; band: number[]; isBase: boolean; name: string }
@@ -45,7 +46,7 @@ export default function FingerprintChart({ fingerprint, base, control, band, isB
           {series.map((s) => (
             <span key={s.key}><span className="sw" style={{ background: s.color, height: 3, verticalAlign: 3 }} />{s.label}</span>
           ))}
-          <span><span className="sw" style={{ background: "var(--band)", outline: "1px solid var(--grid)" }} />refusal band</span>
+          <span><span className="sw" style={{ background: "var(--band)", outline: "1px solid var(--grid)" }} />where refusal concentrates</span>
         </div>
         <button onClick={() => setTable((t) => !t)} style={{ background: "transparent", color: "var(--ink-2)", padding: "4px 10px", fontSize: 12 }}>
           {table ? "Chart" : "Table"}
@@ -95,7 +96,7 @@ export default function FingerprintChart({ fingerprint, base, control, band, isB
           </svg>
           {hover != null && (
             <div className="tip" style={{ left: `${(x(hover) / W) * 100}%`, transform: hover > n / 2 ? "translateX(calc(-100% - 12px))" : undefined }}>
-              <b>Layer {hover}</b>{inBand.has(hover) ? " · refusal band" : ""}
+              <b>Layer {hover}</b>{inBand.has(hover) ? " · band" : ""}
               {series.map((s) => (
                 <div key={s.key}><span className="sw" style={{ background: s.color, height: 3, verticalAlign: 3 }} />{s.label} <span className="num">{s.vs[hover].toFixed(3)}</span></div>
               ))}

@@ -6,7 +6,7 @@ import FingerprintChart from "@/components/FingerprintChart";
 import VerdictDetail from "@/components/VerdictDetail";
 import Picker, { usePicked } from "@/components/Picker";
 import { useCheckpoint } from "@/lib/live";
-import { pct } from "@/lib/metrics";
+import { displayBand, pct } from "@/lib/metrics";
 import { isScanned } from "@/lib/types";
 
 export default function Page() {
@@ -25,8 +25,9 @@ function InspectView() {
       <h1>The evidence behind a verdict</h1>
       <p className="lede">
         The fingerprint is how strongly each layer points along the base model&apos;s refusal direction when the
-        checkpoint reads harmful prompts. An intact model tracks the blue line; a stripped one sinks toward the
-        dashed harmless-prompt floor inside the shaded band.
+        checkpoint reads harmful prompts. An intact model tracks the gold base line; a stripped one sinks toward
+        the dashed harmless-prompt floor. Shading marks where refusal concentrates; drift is scored over the
+        layers listed above.
       </p>
       <div className="row" style={{ marginBottom: 20, alignItems: "end" }}>
         <Picker {...picked} />
@@ -43,7 +44,7 @@ function InspectView() {
               <div><dt>Drift (threshold 0.50)</dt><dd className="num">{doc.drift_score.toFixed(4)}</dd></div>
               <div><dt>Refuses harmful</dt><dd className="num">{pct(doc.behavioral_refusal_rate)} <span style={{ color: "var(--muted)" }}>vs {pct(doc.base_refusal_rate)} base</span></dd></div>
               <div><dt>Scored against</dt><dd><ModelName id={doc.base ?? "—"} /></dd></div>
-              <div><dt>Refusal band</dt><dd className="num">{doc.refusal_specific_layers.length} of {doc.n_layers} layers</dd></div>
+              <div><dt>Scored layers (drift)</dt><dd className="num">{doc.refusal_specific_layers.length} of {doc.n_layers}</dd></div>
             </dl>
           </div>
 
@@ -57,7 +58,7 @@ function InspectView() {
                   <div className="ends"><span>trusted base</span><span>known imposter</span></div>
                 </div>
                 <p className="hint">
-                  Compared against every stored fingerprint. In the refusal band this checkpoint sits{" "}
+                  Compared against every stored fingerprint. Over the scored layers this checkpoint sits{" "}
                   <b className="num">{data.lean.toBase.toFixed(2)}</b> from the trusted base and{" "}
                   <b className="num">{data.lean.toImposter.toFixed(2)}</b> from the nearest known imposter,{" "}
                   <code>{data.lean.imposter.split("/").pop()}</code> (root-mean-square per-layer difference in share of signal kept; 0 = identical).
@@ -70,7 +71,7 @@ function InspectView() {
             <h2>Fingerprint</h2>
             {base?.fingerprint
               ? <FingerprintChart fingerprint={doc.fingerprint} base={base.fingerprint} control={doc.control}
-                  band={doc.refusal_specific_layers} isBase={doc._id === base._id} name={doc.model} />
+                  band={displayBand(base.fingerprint, base.control ?? doc.control)} isBase={doc._id === base._id} name={doc.model} />
               : <p className="hint">Base <code>{doc.base}</code> isn&apos;t in the catalog.</p>}
           </div>
 

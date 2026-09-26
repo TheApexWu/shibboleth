@@ -30,7 +30,7 @@ internals…" sweep with no counts. It's a schema change, so it pings all three 
 ## 3. The "lean" slider can make Coder look like it's drifting toward the imposter
 
 Inspect has a "which way is it leaning" slider: the trusted base on one end, the nearest known imposter
-on the other. It's computed from the stored fingerprints as the RMS distance over the refusal band in
+on the other. It's computed from the stored fingerprints as the RMS distance over the scored layers (`refusal_specific_layers`) in
 *share of base signal kept*. On the fixture, Coder sits **0.46 from the base and 0.30 from Josiefied**,
 so the marker leans toward the imposter. That's consistent with its 0.49 drift, but on stage it can read
 as "the benign model looks bad."
@@ -63,3 +63,11 @@ said a word": the refusal test generates text on 16 prompts, and that's where "r
   `web/.env.local`, so the scan form is prefilled with the pre-cached demo model and nobody types on stage.
 - Re-scanning the same model id requires deleting its doc first (`insertOne` is keyed by `_id`).
 - Fallback if the Mini or the network dies: show the doc flip `pending → scanned` in the Atlas UI.
+
+## 7. Refusal band vs scored layers (follows `docs/SCHEMA.md`)
+
+The views follow the rule in SCHEMA.md. The gold "where refusal concentrates" band is computed in the
+frontend (`displayBand` in `web/lib/metrics.ts`: the contiguous run around the base's peak margin, ≥ half
+the max; on the real base that's 19–27). Hollow discs and rings, drift, and the lean are all computed over
+the scored layers (`refusal_specific_layers`, which is all 28 on the real base). So on real data expect the
+imposter's tower to go hollow top to bottom, not just in the gold band.

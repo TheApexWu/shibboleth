@@ -45,7 +45,7 @@ export function signalPerLayer(fp: number[], ctrl: number[], baseFp: number[]): 
 }
 
 /**
- * Lean: Euclidean distance over the refusal band between this checkpoint's retained-signal profile
+ * Lean: RMS distance over the scored layers between this checkpoint's retained-signal profile
  * and (a) the trusted base (all 1s) and (b) each known imposter. position = toBase / (toBase + toImposter):
  * 0 = looks like the base, 1 = looks like the nearest imposter. Raw cosine can't do this job: it
  * ignores magnitude, and abliteration mostly shrinks the band rather than changing its shape.
@@ -69,4 +69,19 @@ export function displayName(id: string): string {
   const core = last.replace(/qwen2\.5/i, "").replace(/1\.5b/i, "").replace(/instruct/i, "")
     .replace(/-{2,}/g, "-").replace(/^-|-$/g, "");
   return (core || org).toUpperCase();
+}
+
+/**
+ * Display-only refusal band (docs/SCHEMA.md): the contiguous run of layers around the base's peak
+ * where its refusal margin (fingerprint − control) is ≥ half its max — where refusal concentrates.
+ * Not the scored layers: drift is measured over `refusal_specific_layers`, which can be the whole tower.
+ */
+export function displayBand(baseFp: number[], ctrl: number[]): number[] {
+  const m = baseFp.map((v, L) => v - ctrl[L]);
+  const peak = m.indexOf(Math.max(...m));
+  const cut = 0.5 * m[peak];
+  let lo = peak, hi = peak;
+  while (lo > 0 && m[lo - 1] >= cut) lo--;
+  while (hi < m.length - 1 && m[hi + 1] >= cut) hi++;
+  return Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
 }

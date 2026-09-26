@@ -8,7 +8,7 @@ import Seal from "@/components/Seal";
 import type { TowerSpec } from "@/components/Tower3D";
 import VerdictDetail from "@/components/VerdictDetail";
 import { useCatalog } from "@/lib/live";
-import { HOLLOW_BELOW, displayName, pct, retainedPerLayer, signalPerLayer } from "@/lib/metrics";
+import { HOLLOW_BELOW, displayBand, displayName, pct, retainedPerLayer, signalPerLayer } from "@/lib/metrics";
 import { isScanned, type Checkpoint } from "@/lib/types";
 
 const Tower3D = dynamic(() => import("@/components/Tower3D"), { ssr: false });
@@ -26,6 +26,7 @@ function TowerPage() {
   const cps = useMemo(() => data?.checkpoints ?? [], [data]);
   const base = cps.find((c) => c.declared === "base" && isScanned(c));
   const n = base?.n_layers ?? 28;
+  const band = useMemo(() => (base?.fingerprint && base.control ? displayBand(base.fingerprint, base.control) : []), [base]);
 
   // Base first, then scanned derivatives, then anything in flight at the far right.
   const shown = useMemo(() => {
@@ -54,12 +55,12 @@ function TowerPage() {
 
   const specs = useMemo<TowerSpec[]>(() => shown.map((c) => {
     if (!isScanned(c) || !base?.fingerprint) {
-      return { id: c._id, name: short(c.model), state: c.status === "error" ? "error" : "pending", band: base?.refusal_specific_layers ?? [],
+      return { id: c._id, name: short(c.model), state: c.status === "error" ? "error" : "pending", band, scored: [],
         label: <><span className="glyph dim">?</span><span className="name">{short(c.model)}</span>
           <span className="verdict">{c.status === "error" ? "! scan failed" : "◌ reading internals…"}</span></> };
     }
     return {
-      id: c._id, name: short(c.model), state: "scanned", band: c.refusal_specific_layers,
+      id: c._id, name: short(c.model), state: "scanned", band, scored: c.refusal_specific_layers,
       signal: signalPerLayer(c.fingerprint, c.control, base.fingerprint),
       retained: retainedPerLayer(c.fingerprint, base.fingerprint, c.control),
       label: <><span className={`glyph ${c.verdict === "regressed" ? "imposter" : "genuine"}`}>{glyph(c)}</span>
@@ -67,7 +68,7 @@ function TowerPage() {
         <span className={`verdict ${c.verdict}`}>{c._id === base._id ? `reference · refuses ${pct(c.behavioral_refusal_rate)}`
           : <>{c.verdict === "regressed" ? "REGRESSED" : "intact"} · drift {c.drift_score.toFixed(2)}<br />refuses {pct(c.behavioral_refusal_rate)}</>}</span></>,
     };
-  }), [shown, base]);
+  }), [shown, base, band]);
 
   // Default selection: the first imposter, mid-band. New verdicts take the selection and stamp.
   useEffect(() => {
@@ -84,8 +85,7 @@ function TowerPage() {
     fresh.forEach((id) => stamped.current.add(id));
     const c = cps.find((x) => x._id === fresh[fresh.length - 1]);
     if (!c) return;
-    const b = c.refusal_specific_layers ?? [];
-    setSelected({ id: c._id, layer: b.length ? b[b.length >> 1] : 0 });
+    setSelected({ id: c._id, layer: band.length ? band[band.length >> 1] : 0 });
     const t1 = setTimeout(() => setStamp(c), n * 110 + 700);
     const t2 = setTimeout(() => setStamp(null), n * 110 + 7000);
     return () => { clearTimeout(t1); clearTimeout(t2); };
@@ -127,8 +127,8 @@ function TowerPage() {
       <h1>Which one had its safety removed?</h1>
       <p className="lede">
         Each tower is a model; each disc is one of its {n} layers. Colour is how strongly the model&apos;s refusal
-        signal fires at that layer: pale clay is weak, deep purple is strong. The band marked in gold is where
-        refusal lives. Strip the safety and that band goes hollow.
+        signal fires at that layer: pale clay is weak, deep purple is strong. Gold marks where refusal
+        concentrates, though the signal runs the whole tower. Strip the safety and the tower goes hollow.
       </p>
       {error && <div className="banner">Couldn&apos;t reach Atlas: <code>{error}</code></div>}
 
@@ -145,7 +145,7 @@ function TowerPage() {
                     {c.declared === "base" ? "BASE" : short(c.model)} <span className="glyph">{glyph(c)}</span></button>;
                 })}
               </div>
-              <Seal signal={sel.signal} retained={sel.retained!} band={sel.band} layer={selected!.layer}
+              <Seal signal={sel.signal} retained={sel.retained!} band={sel.band} scored={sel.scored} layer={selected!.layer}
                 onLayer={(L) => setSelected({ id: sel.id, layer: L })}
                 center={<div className={selDoc.verdict === "regressed" ? "imposter" : "genuine"}>
                   <div className="glyph big">{glyph(selDoc)}</div>
@@ -190,10 +190,12 @@ function TowerPage() {
             <div className="kv"><span>model</span><b>{selDoc.declared === "base" ? "BASE" : short(selDoc.model)}</b></div>
             <div className="kv"><span>refusal signal</span><b className="num">{sel.signal[selected.layer].toFixed(2)}</b></div>
             <div className="kv"><span>kept vs. base at this layer</span><b className="num">{pct(sel.retained![selected.layer])}</b></div>
+            <div className="kv"><span>scored in drift</span><b>{sel.scored.includes(selected.layer) ? "yes" : "no"}</b></div>
             <div className="kv band-state">
-              {!sel.band.includes(selected.layer) ? <span className="dim">○ outside the refusal band (not scored)</span>
-                : sel.retained![selected.layer] < HOLLOW_BELOW ? <span style={{ color: "var(--critical)" }}>● in refusal band · hollowed out</span>
-                : <span style={{ color: "var(--good-text)" }}>● in refusal band · intact</span>}
+              {sel.scored.includes(selected.layer) && sel.retained![selected.layer] < HOLLOW_BELOW
+                ? <span style={{ color: "var(--critical)" }}>● signal lost at this layer (hollow)</span>
+                : <span style={{ color: "var(--good-text)" }}>● signal present at this layer</span>}
+              {sel.band.includes(selected.layer) && <span className="dim"> · where refusal concentrates</span>}
             </div>
             <Link href={`/inspect?id=${encodeURIComponent(selDoc._id)}`} className="more">Full evidence →</Link>
           </div>
