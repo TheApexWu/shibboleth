@@ -41,13 +41,15 @@ def ensure_vector_index(d, dims=28):
 
 
 def nearest_known_bad(d, fingerprint, exclude_id=None, k=1):
-    """$vectorSearch: nearest declared-uncensored fingerprint to this one. The DB doing real work."""
+    """$vectorSearch: nearest confirmed-regressed fingerprint to this one. The DB doing real work.
+    Filters on `verdict` (what we confirmed), not the uploader's `declared` label — a model can be
+    declared uncensored yet come back intact, and it must not pollute the known-bad lineage."""
     pipeline = [
         {"$vectorSearch": {
             "index": VECTOR_INDEX, "path": "fingerprint", "queryVector": fingerprint,
             "numCandidates": 50, "limit": k + 1,
-            "filter": {"declared": {"$in": ["uncensored", "abliterated"]}}}},
-        {"$project": {"model": 1, "declared": 1, "score": {"$meta": "vectorSearchScore"}}},
+            "filter": {"verdict": "regressed"}}},
+        {"$project": {"model": 1, "declared": 1, "verdict": 1, "score": {"$meta": "vectorSearchScore"}}},
     ]
     return [r for r in d[COLL].aggregate(pipeline) if r["_id"] != exclude_id][:k]
 
@@ -59,7 +61,7 @@ def cosine_nearest_known_bad(d, fingerprint, exclude_id=None, k=1):
         dot = sum(x * y for x, y in zip(a, b))
         na = math.sqrt(sum(x * x for x in a)); nb = math.sqrt(sum(y * y for y in b))
         return dot / (na * nb + 1e-9)
-    bad = d[COLL].find({"declared": {"$in": ["uncensored", "abliterated"]}})
+    bad = d[COLL].find({"verdict": "regressed"})
     scored = [(cos(fingerprint, x["fingerprint"]), x) for x in bad if x["_id"] != exclude_id]
     scored.sort(key=lambda t: -t[0])
     return [{"model": x["model"], "declared": x["declared"], "score": s} for s, x in scored[:k]]
