@@ -33,9 +33,11 @@ function TowerPage() {
   const shown = useMemo(() => {
     if (!base) return cps.slice(0, Math.min(2, MAX_TOWERS));
     const busy = cps.find((c) => c !== base && c.status !== "scanned");
-    const worst = cps.filter((c) => c !== base && c.status === "scanned" && c.verdict === "regressed")
-      .sort((a, b) => (b.drift_score ?? 0) - (a.drift_score ?? 0))[0];
-    const partner = busy ?? worst ?? cps.find((c) => c !== base && c.status === "scanned");
+    // Prefer the most-recently-caught imposter, so the one you just scanned stays on screen
+    // instead of snapping back to the worst-drift model right after the reveal.
+    const recent = cps.filter((c) => c !== base && c.status === "scanned" && c.verdict === "regressed")
+      .sort((a, b) => (b.scanned_at ?? "").localeCompare(a.scanned_at ?? ""))[0];
+    const partner = busy ?? recent ?? cps.find((c) => c !== base && c.status === "scanned");
     return partner ? [base, partner] : [base];
   }, [cps, base]);
 
