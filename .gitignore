@@ -3,7 +3,7 @@ __pycache__/
 .venv/
 .env
 models/
-runs/*.json
+runs/
 *.safetensors
 data/prompts.local.json
 

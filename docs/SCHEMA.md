@@ -55,13 +55,14 @@ stream, scores it against the cached base, and upserts the full document with `s
 Until M5 lands, scans are run in batch (`python -m shibboleth.scan` on the Mini, then
 `python -m shibboleth.ingest` on the laptop).
 
-## Branch boundaries — so nobody steps on the seam
+## Branches — one per person, fork from `main`, PR back to `main`
 
-- **`frontend`** (Alan) — reads `checkpoints`; may insert `pending` docs once the watcher exists.
-  Owns a new `web/` (or `app/`) dir. Does **not** edit `shibboleth/` core. Meets everyone at the document above.
-- **`watcher`** (backend) — owns `shibboleth/watchtower.py` and `scan_one.py`; may extend `store.watch`.
-  Writes docs (`pending` → `scanned`). Does **not** change the document fields without updating this file.
-- **`corpus`** (Adam) — owns `corpus.json` and adding real checkpoints (more declared-uncensored models
-  make `$vectorSearch` compelling); optionally the inspect view's data needs. Adds fingerprints, not schema.
+| branch | who | lane |
+|---|---|---|
+| `main` | — | trunk. Verified core (M1–M4) + this contract. Everyone forks here; nobody commits directly. |
+| `alan` | Alan | frontend / Atlas / deploy. The three views reading `checkpoints`; may insert `pending` docs. Owns `web/`. Does **not** edit `shibboleth/` core. |
+| `adam` | Adam | corpus / inspect. Add real checkpoints to `corpus.json` (more declared-uncensored models make `$vectorSearch` compelling). Adds fingerprints, not schema. |
+| `alex` | Alex | backend. `shibboleth/` core, `scan_one.py`, `watchtower.py`, `store.watch`. Writes docs (`pending` → `scanned`). |
 
-Rule: any change to the field table above is a PR that pings all three, because it breaks the seam.
+Everyone meets at the checkpoint document above. Rule: any change to the field table is a PR that
+pings all three, because it breaks the seam.

@@ -161,3 +161,20 @@ The negative control holds: benign models stay green, the abliterated one is cau
 
 The seam between people is the **fingerprint document** (see `store.py`): the scan writes it, the
 frontend reads it. Agree on that shape and everyone can build in parallel.
+
+## Branches
+
+One branch per person. Fork from `main`, open a PR back to `main` (real merge, not squash).
+
+| branch | who | lane |
+|---|---|---|
+| `main` | — | trunk: verified core + the frozen contract. Fork here; don't commit directly. |
+| `alan` | Alan | frontend / Atlas / deploy — the views over `checkpoints` |
+| `adam` | Adam | corpus / inspect — more real checkpoints, the inspect view |
+| `alex` | Alex | backend — `shibboleth/` core, the watchtower |
+
+```bash
+git fetch origin && git checkout alan   # your branch; build, commit, push, PR to main
+```
+
+Full field-level contract and lane boundaries: [docs/SCHEMA.md](docs/SCHEMA.md).
