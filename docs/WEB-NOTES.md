@@ -3,12 +3,12 @@
 Open items from building `web/` (the Catalog / Tower / Inspect views). Read this before touching the
 frontend, the scan output, or the demo script.
 
-## 1. The views have not run against real Atlas yet
+## 1. Run modes — both verified against live
 
-Everything was built and tested on the demo fixture: the four real verdicts from `docs/SCHEMA.md` over
-**synthetic** per-layer shapes, plus a simulated ~16s scan. To run against the cluster, put the same
-`ATLAS_URI` as the Python `.env` in `web/.env.local`. Then check that the four real docs render and
-that the change stream drives the Catalog live.
+Canned/fixture mode runs on a snapshot of the **real** Atlas documents (`web/lib/checkpoints.json`,
+11 checkpoints) with a client-side simulated scan. Live mode runs against the cluster: put the same
+`ATLAS_URI` as the Python `.env` in `web/.env.local`, and the change stream drives the Catalog live.
+Both have been checked against the live 11-checkpoint collection.
 
 ## 2. The progress bar needs a `progress` field (schema PR + watchtower relay)
 
