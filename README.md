@@ -162,6 +162,28 @@ The negative control holds: benign models stay green, the abliterated one is cau
 The seam between people is the **fingerprint document** (see `store.py`): the scan writes it, the
 frontend reads it. Agree on that shape and everyone can build in parallel.
 
+## Running the web app
+
+The frontend (`web/`, Next.js) picks its mode automatically from whether `ATLAS_URI` is set in
+`web/.env.local`:
+
+- **Live (the formal / submission version):** with `ATLAS_URI` set, it reads the real `checkpoints`
+  collection, and a scan drives the real MongoDB change stream + the watchtower.
+  ```
+  cd web && npm install
+  # web/.env.local:  ATLAS_URI=<uri>  + NEXT_PUBLIC_DEMO_MODEL/DECLARED/PATH for the prefilled scan
+  npm run dev                          # http://localhost:3000
+  # in another terminal, so a scan gets picked up:
+  python -m shibboleth.watchtower
+  ```
+- **Canned (reliable demo, any machine):** with no `ATLAS_URI` it runs on a fixture carrying the real
+  numbers and simulates the scan client-side — no Mini, no watchtower, repeatable, works anywhere.
+  ```
+  cd web && npm install && npm run dev
+  ```
+
+Demo runbook (pre-flight, the live catch, reset, fallbacks): [docs/RUNBOOK.md](docs/RUNBOOK.md).
+
 ## Branches
 
 One branch per person. Fork from `main`, open a PR back to `main` (real merge, not squash).
