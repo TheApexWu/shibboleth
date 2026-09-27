@@ -152,16 +152,6 @@ The negative control holds across the fleet: seven different benign finetunes st
 abliterated series is caught. It detects tampering, not difference. AUC 1.0 base-vs-twin at the
 refusal layers (shuffle control 0.57 ≈ chance).
 
-## Research directions
-
-- **Recursive probe (S1)** — the harness re-tunes which layers it fingerprints as the known-bad
-  library grows; the mechanism is in place, a proven learning curve needs a held-out, different-method
-  imposter set.
-- **Multi-dimensional refusal** — a single linear direction has blind spots; extend the fingerprint to
-  the refusal subspace (Wollschläger 2502.17420).
-- **Backdoor / unknown-trigger detection** — the current signal doesn't cover trigger-conditioned
-  backdoors; a separate probe class.
-
 ## Contributors
 
 Solo research by Alex Wu. Hackathon contributions: Alan Wu (frontend / Atlas / deploy), Adam Martinez
