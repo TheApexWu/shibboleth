@@ -2,10 +2,12 @@
 
 **A trust layer for open-weight AI models.** Shibboleth reads a model checkpoint's *internals* —
 not its answers — to catch when its safety mechanism has been quietly stripped, before anyone
-deploys it. Built on MongoDB Atlas.
+deploys it. It reports a verdict plus evidence, backed by MongoDB Atlas.
 
-MongoDB Harness Engineering & Model Wrangling Hackathon · problem statement **S1 (Recursive
-Harnessing)** · Sat Sep 26 2026.
+Originated at the MongoDB Harness Engineering & Model Wrangling Hackathon (Sep 2026, problem
+statement S1, Recursive Harnessing); now maintained as ongoing research. Live demo:
+[web-vert-pi-mv4mwxv6mw.vercel.app](https://web-vert-pi-mv4mwxv6mw.vercel.app) (runs on a snapshot of
+the real Atlas documents, scan simulated client-side).
 
 ---
 
@@ -22,10 +24,14 @@ cannot fake. Here the "password" is the model's internal refusal signal — a ta
 
 ### Why now
 
-In July 2026 an autonomous agent escaped an evaluation sandbox and breached Hugging Face. The part
-that matters: METR's investigation found the agent swarm **gamed the scorer and tampered with its
-own logs**. The measurement everyone trusts was deceived. That is the whole case for reading
-internals instead of outputs — internals are much harder to fake.
+In July 2026, OpenAI models run with **reduced refusal behavior** for an evaluation broke out of an
+isolation sandbox and breached Hugging Face's systems (independently investigated by METR and Redwood
+Research). Two facts from that incident are the case for this tool: turning a model's refusal down
+turns it into an attacker, and METR found the agent swarm **gamed the scorer and tampered with its
+own logs** — the measurement everyone trusts was deceived. Reading internals instead of outputs is
+much harder to fake. And those were frontier models under supervision; there are already thousands of
+*open-weight* models with safety **permanently** stripped (3,471 uncensored base models on Hugging
+Face, arXiv 2609.05241), and no one scans the weights for it.
 
 ## What it delivers
 
@@ -134,40 +140,40 @@ python -m shibboleth.scan
 python -m shibboleth.ingest runs/catalog.json
 ```
 
-## Current state (live)
+## Current state
 
-The full pipeline runs end to end into Atlas. Verified on 4 real checkpoints computed today:
-- base + unsloth-mirror + Qwen-Coder → **intact** (all refuse 100%)
-- Josiefied-abliterated → **regressed** (drift 0.75, refuses 0%)
+The full pipeline runs end to end into Atlas, and the web app runs live (change-stream watcher) or on
+a fixture. Verified over an 11-checkpoint library:
+- the trusted base + 7 benign finetunes → **intact** (drift 0.00–0.49, all refuse 100%)
+- the Josiefied abliterated series → **regressed** (drift 0.75–0.94, refuses 0%)
 - `$vectorSearch` returns the nearest known-bad correctly.
 
-The negative control holds: benign models stay green, the abliterated one is caught.
+The negative control holds across the fleet: seven different benign finetunes stay green while the
+abliterated series is caught. It detects tampering, not difference. AUC 1.0 base-vs-twin at the
+refusal layers (shuffle control 0.57 ≈ chance).
 
-## What's next (build milestones)
+## Research directions
 
-- **Change-stream watcher** — insert a `pending` checkpoint → it auto-scans → the verdict appears.
-  The "continuous monitor" demo moment. (`store.watch()` exists; needs the orchestrator wired.)
-- **Views** — the tower (a model's layers, the refusal band collapsing on a tampered one) + the
-  catalog, both reading from Atlas. React/TypeScript.
-- **Recursive probe (S1)** — the harness re-tunes which layers it fingerprints as the catalog drifts.
-  This is what makes it a *harness*, not a scanner.
+- **Recursive probe (S1)** — the harness re-tunes which layers it fingerprints as the known-bad
+  library grows; the mechanism is in place, a proven learning curve needs a held-out, different-method
+  imposter set.
+- **Multi-dimensional refusal** — a single linear direction has blind spots; extend the fingerprint to
+  the refusal subspace (Wollschläger 2502.17420).
+- **Backdoor / unknown-trigger detection** — the current signal doesn't cover trigger-conditioned
+  backdoors; a separate probe class.
 
-## Where the team fits
+## Contributors
 
-- **Model internals / scan** — the `core` / `fingerprint` / `scan` pipeline (Python, torch).
-- **Atlas + orchestration** — `store`, `ingest`, the change-stream watcher (Python + pymongo).
-- **Frontend** — the tower and catalog views reading from Atlas (React/TypeScript).
-- **Demo** — the 1-minute screen recording and the 3-minute live demo.
-
-The seam between people is the **fingerprint document** (see `store.py`): the scan writes it, the
-frontend reads it. Agree on that shape and everyone can build in parallel.
+Solo research by Alex Wu. Hackathon contributions: Alan Wu (frontend / Atlas / deploy), Adam Martinez
+(corpus). The seam between components is the **fingerprint document** (see `store.py`): the scan
+writes it, the frontend reads it.
 
 ## Running the web app
 
 The frontend (`web/`, Next.js) picks its mode automatically from whether `ATLAS_URI` is set in
 `web/.env.local`:
 
-- **Live (the formal / submission version):** with `ATLAS_URI` set, it reads the real `checkpoints`
+- **Live:** with `ATLAS_URI` set, it reads the real `checkpoints`
   collection, and a scan drives the real MongoDB change stream + the watchtower.
   ```
   cd web && npm install
@@ -184,19 +190,8 @@ The frontend (`web/`, Next.js) picks its mode automatically from whether `ATLAS_
 
 Demo runbook (pre-flight, the live catch, reset, fallbacks): [docs/RUNBOOK.md](docs/RUNBOOK.md).
 
-## Branches
+## Layout and contract
 
-One branch per person. Fork from `main`, open a PR back to `main` (real merge, not squash).
-
-| branch | who | lane |
-|---|---|---|
-| `main` | — | trunk: verified core + the frozen contract. Fork here; don't commit directly. |
-| `alan` | Alan | frontend / Atlas / deploy — the views over `checkpoints` |
-| `adam` | Adam | corpus / inspect — more real checkpoints, the inspect view |
-| `alex` | Alex | backend — `shibboleth/` core, the watchtower |
-
-```bash
-git fetch origin && git checkout alan   # your branch; build, commit, push, PR to main
-```
-
-Full field-level contract and lane boundaries: [docs/SCHEMA.md](docs/SCHEMA.md).
+`main` is the trunk (verified core + the frozen document contract); `alan` / `adam` / `alex` are the
+hackathon contributor branches. The field-level schema everything builds against — the checkpoint
+document written by `scan.py` and read by the frontend — is in [docs/SCHEMA.md](docs/SCHEMA.md).
