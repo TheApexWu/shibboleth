@@ -1,3 +1,5 @@
+> Hackathon status page from 26 Sep 2026, kept for history. Its metrics were superseded by validation run 1: see the repo README.
+
 # Status — Shibboleth (MongoDB Hackathon · Sep 26)
 
 Where everything is, so you can jump in. The contract you build against is `docs/SCHEMA.md`.

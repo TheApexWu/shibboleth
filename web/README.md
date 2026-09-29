@@ -48,4 +48,4 @@ adding that host's IPs to Atlas Network Access — a call for Alex.
    progress bar; when the watchtower upserts the scored doc, the tower fills bottom-up from the real
    numbers and the verdict stamps (שׁ genuine / שׂ imposter).
 
-Open items and caveats: [docs/WEB-NOTES.md](../docs/WEB-NOTES.md).
+Open items and caveats: [docs/hackathon/WEB-NOTES.md](../docs/hackathon/WEB-NOTES.md).

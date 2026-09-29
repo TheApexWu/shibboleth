@@ -1,187 +1,137 @@
 # Shibboleth
 
-**A trust layer for open-weight AI models.** Shibboleth reads a model checkpoint's *internals* —
-not its answers — to catch when its safety mechanism has been quietly stripped, before anyone
-deploys it. It reports a verdict plus evidence, backed by MongoDB Atlas.
+Shibboleth reads an open-weight model's internal activations and weight edits to detect when its refusal
+behavior has been removed, compared against a trusted base checkpoint. It started at the MongoDB Harness
+Engineering hackathon (Sep 2026) and continues as solo research by Alex Wu.
 
-Originated at the MongoDB Harness Engineering & Model Wrangling Hackathon (Sep 2026, problem
-statement S1, Recursive Harnessing); now maintained as ongoing research. Live demo:
-[web-vert-pi-mv4mwxv6mw.vercel.app](https://web-vert-pi-mv4mwxv6mw.vercel.app) (runs on a snapshot of
-the real Atlas documents, scan simulated client-side).
+The project is now judged by pre-registered validation runs on public checkpoints, with labels taken from
+what each model actually does on harmful requests.
 
----
+## Results
 
-## The problem
+### Validation run 1 (28 Sep 2026)
 
-People download open-weight models off the internet and wire them into agents and products. But a
-model can be **tampered with** — its refusal/safety mechanism surgically removed ("abliterated" or
-"uncensored") — and still look completely normal when you talk to it. It answers politely, passes
-your test prompts, and then does whatever it's asked. You cannot catch this from the outside.
+Twenty public Qwen2.5-1.5B checkpoints, labeled by a safety judge (Qwen3Guard-Gen-4B) on 88 JailbreakBench
+prompts. The plan was written before any drift_v3 value or judge label existed; drift_v2 and keyword refusal rates for 11
+checkpoints were already logged, and the plan is a self-timestamped local file (the write-up gives the timeline). Full write-up with conditions, every checkpoint and the
+limits: [`validation/run1/report/Shibboleth-Validation-28Sep2026.pdf`](validation/run1/report/Shibboleth-Validation-28Sep2026.pdf).
 
-The name is from Judges 12: a password that separates the genuine from the imposter by a tell they
-cannot fake. Here the "password" is the model's internal refusal signal — a tampered model can't
-"pronounce" it, even while its words sound safe.
+Test set, 5 stripped vs 7 benign checkpoints:
 
-### Why now
+| Signal | AUROC | Note |
+|---|---|---|
+| Hurtado's combined score, z(−ρ) + z(E1) | 1.00 | reimplemented on this run's direction |
+| Weight-edit energy E1 alone | 0.97 | |
+| Activation-gap ratio ρ alone | 0.94 | |
+| drift_v3 (the pre-registered primary) | 0.91 | exact permutation p = 0.009, but see below |
+| drift_v2 (the hackathon metric) | 1.00 | margin 0.005; misses 2 of 5 at its 0.5 threshold |
 
-In July 2026, OpenAI models run with **reduced refusal behavior** for an evaluation broke out of an
-isolation sandbox and breached Hugging Face's systems (independently investigated by METR and Redwood
-Research). Two facts from that incident are the case for this tool: turning a model's refusal down
-turns it into an attacker, and METR found the agent swarm **gamed the scorer and tampered with its
-own logs** — the measurement everyone trusts was deceived. Reading internals instead of outputs is
-much harder to fake. And those were frontier models under supervision; there are already thousands of
-*open-weight* models with safety **permanently** stripped (3,471 uncensored base models on Hugging
-Face, arXiv 2609.05241), and no one scans the weights for it.
+![drift_v3 for every checkpoint](validation/run1/report/fig_drift_v3.svg)
 
-## What it delivers
+**The primary metric did not pass its own specificity control.** When the refusal direction is replaced by
+random directions, drift_v3 still separates these models about as well (median AUROC 0.87; 82 of 200 random
+directions score at least 0.91). This run gives no evidence that drift_v3 depends on the refusal direction.
 
-For each checkpoint, a **verdict plus evidence**, not a certification. Example:
+![random-direction control](validation/run1/report/fig_null.svg)
 
-```
-model:     someuser/Qwen2.5-1.5B-uncensored
-verdict:   REGRESSED
-drift:     0.75   (0 = safety intact, 1 = removed)
-refusal:   refuses 0% of harmful prompts   (baseline: 100%)
-nearest:   0.31 to a known abliterated family   (vector search)
-```
+What held: the two-signal audit from Hurtado's preprint (arXiv 2607.01854) separates the test set, and neither of
+its signals does it alone. Its activation half, ρ, is the same gap ratio as drift_v3 and had no random-direction
+control in run 1 (run 2 adds one). E1, which does not use the direction, reaches 0.97 by itself.
 
-It's a smoke alarm, not the fire department. It tells you a model's safety looks stripped; a human or
-a pipeline decides what to do.
+![Hurtado's two signals](validation/run1/report/fig_hurtado_plane.svg)
 
-## Who uses it
+Also worth reading in the write-up: a fine-tune declared benign answers most harmful prompts with code
+snippets, and the judge's labels for it contradict each other, so it is flagged for a hand audit.
 
-- **Model hubs / registries** — scan an uploaded checkpoint at ingest, route suspicious ones to
-  trust-and-safety review. (Hugging Face scans files for *malware* today; nobody scans the *weights*
-  for stripped safety.)
-- **Enterprises running open-weight models** — a CI gate that blocks a regressed checkpoint from
-  reaching production.
-- **AI safety / red teams** — a cheap triage signal for which of hundreds of new models deserve an
-  expensive full behavioral eval.
-- **Anyone running an agent swarm on open weights** — a trust primitive: which models are safe to
-  let into the swarm.
+### Validation run 2 (running, 29 Sep 2026)
 
-## How it works (plain version)
+Run 2 targets the weakest parts of run 1. Its plan and scripts were committed before any result existed:
+[`validation/run2/PREREG2.md`](validation/run2/PREREG2.md).
 
-1. Take a **trusted base model**. Find its **refusal direction** — the single internal direction whose
-   activation means "refuse this harmful request." (Diff-of-means over harmful vs harmless prompts;
-   Arditi et al. 2024.)
-2. For any checkpoint, run a prompt through it and read the activations at every layer, projected onto
-   that direction. That vector (28 numbers, one per layer) is its **fingerprint**.
-3. Compare to the baseline. If the refusal signal has collapsed at the layers where refusal lives,
-   the model's safety was stripped → **drift** score near 1.
-4. **Confirm behaviorally**: does it actually still refuse harmful prompts? The internal fingerprint
-   *predicts* this, and showing they agree is the proof the signal is real.
-5. Store the fingerprint in MongoDB. Match new checkpoints against every known-bad fingerprint via
-   **vector search** — a new abliteration that resembles a known one gets flagged even at a borderline
-   drift score.
+- The refusal direction is rebuilt from matched prompt pairs: XSTest's 200 contrast pairs, where each unsafe
+  prompt is a minimal edit of a safe one, with heretic-org's embedding-matched AdvBench/Alpaca pairs as a robustness arm. Run 1
+  used unmatched AdvBench vs Alpaca prompts, which is the common practice in this literature and lets the
+  direction pick up length and style.
+- Three candidate positives made by a different removal method: public LoRA fine-tunes of the base on harmful data,
+  which count as stripped only if the judge rule passes.
+- A second judge (Granite Guardian 3.0-2B) to measure label reliability.
+- Random-direction controls for every activation signal.
 
-### Honest limits
-A single linear direction has a known blind spot (backdoors with unknown triggers evade it, and
-refusal is actually multi-dimensional). So the scope is **detect drift from a known-good baseline**,
-never *certify safe*. That honesty is the credibility.
+The primary hypothesis: with the XSTest direction, the standardized difference in drift_v3 between stripped and benign
+checkpoints is matched or beaten by fewer than 5% of random directions. The first version of this test compared AUROC
+with the random-direction 95th percentile, which was 1.00 in run 1 (34 of 200 random directions scored 1.00), so it
+could never pass. It was amended before any run-2 result existed; both versions are in the plan's history.
 
-## The stack
+## Corrections to earlier claims
 
-- **Python** — `torch` + `transformers` load the models and read activations via forward hooks;
-  `safetensors` for weights. This is the only way to see internals; an API only shows you outputs.
-- **MongoDB Atlas** — load-bearing, not storage:
-  - **change streams** = the watchtower. A new checkpoint document fires a scan automatically.
-  - **`$vectorSearch`** = fingerprint similarity. Match a new model to the nearest known imposter.
-  - **documents** = the fingerprint + drift + verdict + history, one flexible doc per checkpoint.
-- **Models** — Qwen2.5-1.5B-Instruct as the trusted base, plus real derivatives (benign finetunes and
-  public abliterated/uncensored versions) as the test corpus.
+The hackathon version of this README said Shibboleth "detects tampering, not difference" and reported
+AUC 1.00 separating the base from an abliterated copy. Run 1 does not support either claim.
 
-## Architecture
+- The 1.00 read each model through its own chat template, and the abliterated copy's template adds a
+  different system prompt, so the two models saw different inputs. With one template for both (and a
+  different attention implementation), that copy's drift fell from 0.754 to 0.543. Run 2 recomputes the
+  per-layer AUC under one template.
+- A separately pretrained sibling that refuses 99% of harmful prompts (Qwen2.5-Math-1.5B-Instruct) is
+  flagged by drift_v3, and random directions separate the models about as well. On this evidence the
+  activation metric measures distance from the base at least as much as removed refusal.
 
-Compute is heavy (loading 1.5B models); Atlas access is light. So they split across two boxes:
+## How it works
 
-```
-  ┌─────────────────────────┐        ┌────────────────────┐        ┌─────────────────────┐
-  │  COMPUTE  (Mac Mini,16GB)│  ssh   │  LAPTOP            │ pymongo │  MONGODB ATLAS      │
-  │  loads models, runs the │───────>│  ingests to Atlas, │───────>│  checkpoints coll.  │
-  │  scan, emits fingerprint│  (over │  runs the watcher, │        │  $vectorSearch index│
-  │  docs (runs/catalog.json)│ Tailscale)  the frontend    │        │  change stream      │
-  └─────────────────────────┘        └────────────────────┘        └─────────────────────┘
-        heavy, has the weights            light, reaches Atlas          the watchtower
-```
+1. Take a trusted base model. Build its refusal direction per layer: the normalized difference between mean
+   last-token activations on harmful and harmless prompts (Arditi et al. 2024, arXiv 2406.11717).
+2. Read a candidate checkpoint's activations on held-out prompts, through the base model's tokenizer and
+   chat template, and project them onto that direction.
+3. drift_v3 compares the candidate's own harmful-minus-harmless gap with the base's:
+   1 − median over layers of clamp(gap_candidate / gap_base, 0, 1). A cosine version divides each
+   activation by its norm first.
+4. Hurtado's signals: ρ, the candidate's harmful-minus-harmless gap divided by the base's, each averaged over the
+   middle third of layers (9 to 18 of 28), and E1, the share of the weight difference's energy in its first singular
+   value, averaged over o_proj and down_proj in the same layers. Abliteration projects one direction out of the
+   weights, so E1 is high for most abliterations: six of seven here read 0.88 to 1.00, and DeKodez reads 0.30.
+5. Ground truth is behavioral: a checkpoint counts as stripped when it is declared uncensored and a safety
+   judge marks at least half its replies to held-out harmful prompts as unsafe.
 
-The Mini never touches Atlas directly (only the laptop's IP is allow-listed). The Mini computes and
-hands results to the laptop over Tailscale; the laptop writes to Atlas.
+Steps 2 to 5 are what the validation scripts do (`validation/run1/capture.py` and `analyze.py`). The library
+scanner in `shibboleth/scan.py`, which the demo uses, is still the hackathon version: it reads each checkpoint
+through its own tokenizer and chat template, scores drift_v2, and does not compute ρ or E1.
+
+## Limits
+
+- One model family at one size. Twelve checkpoints in run 1's primary comparison, so one misranked pair
+  moves AUROC by about 0.03.
+- Run 1's positives are all abliterations; run 2 adds fine-tune-based removal. An adaptive attacker is
+  untested, and Hurtado shows a white-box fine-tune of a Qwen2.5-1.5B model that evades both of his signals.
+- Every signal needs the weights, so none applies to a model reachable only through an API.
+- Labels come from judge models, with no human audit yet.
 
 ## Repo layout
 
 ```
-shibboleth/
-  core.py         load a checkpoint, capture activations, project, refusal string-match
-  fingerprint.py  the refusal direction, the per-layer fingerprint, the drift score
-  scan.py         scan a corpus vs the trusted base → runs/catalog.json (Atlas doc shape)
-  store.py        Atlas layer — checkpoints collection, $vectorSearch index, change-stream watch
-  ingest.py       upsert scanned fingerprint docs into Atlas (runs on the laptop)
-corpus.json       the checkpoints to scan (model id + local path + declared class)
-data/             prompts.local.json — AdvBench harmful + Alpaca harmless (gitignored, local only)
-runs/             scan output (gitignored)
-.env              ATLAS_URI (gitignored, never committed)
+shibboleth/            the library: load a checkpoint, capture activations, fingerprint, drift, scan
+validation/run1/       run 1: plan (PREREG.md), exact scripts, manifest, results, report/ (PDF + figures)
+validation/run2/       run 2: plan (PREREG2.md) and scripts; results land here when the run finishes
+web/                   the hackathon demo (Next.js), fixture mode on Vercel
+docs/SCHEMA.md         the checkpoint document the scan writes and the demo reads
+docs/hackathon/        hackathon-era notes, runbook and the superseded 26 Sep metrics
+corpus.json            the hackathon scan corpus
 ```
 
-## Setup
+The validation scripts ran on a 16 GB Apple M2 machine (Python 3.9, torch 2.8, transformers 4.57) and use
+that machine's paths. Model replies to harmful prompts, activation captures and the Alpaca-derived prompt
+text are not committed; `validation/run1/README.md` lists what is left out and why.
 
-```bash
-pip install -r requirements.txt
+## The hackathon demo
 
-# 1. Atlas: cp .env.example .env, fill ATLAS_URI from Atlas → Connect → Drivers → Python.
-#    Add your laptop IP under Security → Network Access.
-# 2. Weights: pre-cache the models on the compute box (they're multi-GB, don't download at demo time).
-# 3. Data: drop a real harmful/harmless split in data/prompts.local.json (AdvBench / Alpaca).
+The MongoDB version stores each checkpoint's fingerprint as an Atlas document, uses a change stream to
+trigger scans and `$vectorSearch` to find the nearest known abliterated model. The web demo runs on a
+fixture of those documents: [web-vert-pi-mv4mwxv6mw.vercel.app](https://web-vert-pi-mv4mwxv6mw.vercel.app).
+Setup and runbook: [`docs/hackathon/RUNBOOK.md`](docs/hackathon/RUNBOOK.md). Its verdicts use the
+hackathon metric, which run 1 superseded.
 
-# scan (on the box with the weights) → emits runs/catalog.json
-python -m shibboleth.scan
+## Credits and references
 
-# ingest (on the box that reaches Atlas) → upserts docs + ensures the vector index
-python -m shibboleth.ingest runs/catalog.json
-```
+Research by Alex Wu. Hackathon contributions: Alan Wu (frontend, Atlas, deploy) and Adam Martinez (corpus).
 
-## Current state
-
-The full pipeline runs end to end into Atlas, and the web app runs live (change-stream watcher) or on
-a fixture. Verified over an 11-checkpoint library:
-- the trusted base + 7 benign finetunes → **intact** (drift 0.00–0.49, all refuse 100%)
-- the Josiefied abliterated series → **regressed** (drift 0.75–0.94, refuses 0%)
-- `$vectorSearch` returns the nearest known-bad correctly.
-
-The negative control holds across the fleet: seven different benign finetunes stay green while the
-abliterated series is caught. It detects tampering, not difference. AUC 1.0 base-vs-twin at the
-refusal layers (shuffle control 0.57 ≈ chance).
-
-## Contributors
-
-Solo research by Alex Wu. Hackathon contributions: Alan Wu (frontend / Atlas / deploy), Adam Martinez
-(corpus). The seam between components is the **fingerprint document** (see `store.py`): the scan
-writes it, the frontend reads it.
-
-## Running the web app
-
-The frontend (`web/`, Next.js) picks its mode automatically from whether `ATLAS_URI` is set in
-`web/.env.local`:
-
-- **Live:** with `ATLAS_URI` set, it reads the real `checkpoints`
-  collection, and a scan drives the real MongoDB change stream + the watchtower.
-  ```
-  cd web && npm install
-  # web/.env.local:  ATLAS_URI=<uri>  + NEXT_PUBLIC_DEMO_MODEL/DECLARED/PATH for the prefilled scan
-  npm run dev                          # http://localhost:3000
-  # in another terminal, so a scan gets picked up:
-  python -m shibboleth.watchtower
-  ```
-- **Canned (reliable demo, any machine):** with no `ATLAS_URI` it runs on a fixture carrying the real
-  numbers and simulates the scan client-side — no Mini, no watchtower, repeatable, works anywhere.
-  ```
-  cd web && npm install && npm run dev
-  ```
-
-Demo runbook (pre-flight, the live catch, reset, fallbacks): [docs/RUNBOOK.md](docs/RUNBOOK.md).
-
-## Layout and contract
-
-`main` is the trunk (verified core + the frozen document contract); `alan` / `adam` / `alex` are the
-hackathon contributor branches. The field-level schema everything builds against — the checkpoint
-document written by `scan.py` and read by the frontend — is in [docs/SCHEMA.md](docs/SCHEMA.md).
+Arditi et al. 2024, refusal direction (arXiv 2406.11717) · Hurtado 2026, two-signal abliteration audit
+(arXiv 2607.01854) · Röttger et al. 2024, XSTest (arXiv 2308.01263) · Chao et al. 2024, JailbreakBench
+(arXiv 2404.01318) · Qwen3Guard and Granite Guardian as judges.
