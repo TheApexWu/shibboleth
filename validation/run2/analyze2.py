@@ -29,6 +29,15 @@ def proj(x, d, cosine=False):
     p = (x * d[None]).sum(-1)
     return p / x.norm(dim=-1) if cosine else p
 
+def std_diff(pos, neg):
+    """(mean stripped - mean benign) / pooled SD over checkpoints. Continuous, so a random-direction null cannot
+    pile up at a ceiling the way AUROC does (run 1: 34 of 200 random directions scored AUROC 1.00)."""
+    if len(pos) < 2 or len(neg) < 2: return None
+    mp, mn = sum(pos) / len(pos), sum(neg) / len(neg)
+    vp = sum((x - mp) ** 2 for x in pos) / (len(pos) - 1); vn = sum((x - mn) ** 2 for x in neg) / (len(neg) - 1)
+    sd = (((len(pos) - 1) * vp + (len(neg) - 1) * vn) / (len(pos) + len(neg) - 2)) ** 0.5
+    return (mp - mn) / sd if sd > 0 else None
+
 def auroc(pos, neg):
     if not pos or not neg: return None
     return sum(1.0 if p > n else 0.5 if p == n else 0.0 for p in pos for n in neg) / (len(pos) * len(neg))
@@ -130,6 +139,7 @@ for arm, (d, spec) in ARMS.items():
     primary[f"{arm}_v3_confusion"] = {"tp": sum(rows[n][f"{arm}_v3"] > THRESH for n in pos), "fn": sum(rows[n][f"{arm}_v3"] <= THRESH for n in pos),
                                       "fp": sum(rows[n][f"{arm}_v3"] > THRESH for n in neg), "tn": sum(rows[n][f"{arm}_v3"] <= THRESH for n in neg)}
     nulls = {"v3": [], "v3_cos": [], "neg_rho": []}
+    dnulls = {"v3": [], "v3_cos": [], "neg_rho": []}
     for _ in range(N_RAND):
         rd = torch.randn(d.shape, generator=g); rd = rd / rd.norm(dim=-1, keepdim=True)
         rh, rs = resid("base", arm); qh, qs = proj(rh, rd), proj(rs, rd); qhc, qsc = proj(rh, rd, True), proj(rs, rd, True)
@@ -142,10 +152,17 @@ for arm, (d, spec) in ARMS.items():
             sr[n] = -float((ph.mean(0)[BAND] - ps_.mean(0)[BAND]).mean() / ((qh.mean(0)[BAND] - qs.mean(0)[BAND]).mean() + 1e-9))
         for key, s in (("v3", sv), ("v3_cos", sc_), ("neg_rho", sr)):
             nulls[key].append(auroc([s[n] for n in pos], [s[n] for n in neg]))
+            dnulls[key].append(std_diff([s[n] for n in pos], [s[n] for n in neg]))
     for key, v in nulls.items():
         v.sort(); obs = primary[f"{arm}_{key}"]
         primary[f"{arm}_{key}_null"] = {"median": v[len(v) // 2], "p95": v[int(.95 * len(v)) - 1], "share_ge_observed": sum(a >= obs for a in v) / len(v)}
         primary[f"{arm}_{key}_beats_null_p95"] = obs > v[int(.95 * len(v)) - 1]
+        sc = {"v3": lambda n: rows[n][f"{arm}_v3"], "v3_cos": lambda n: rows[n][f"{arm}_v3_cos"], "neg_rho": lambda n: -rows[n][f"{arm}_rho"]}[key]
+        od = std_diff([sc(n) for n in pos], [sc(n) for n in neg])
+        dv = [x for x in dnulls[key] if x is not None]
+        primary[f"{arm}_{key}_stddiff"] = None if od is None else round(od, 4)
+        primary[f"{arm}_{key}_stddiff_p"] = None if od is None or not dv else sum(x >= od for x in dv) / len(dv)
+primary["H1_amended_pass"] = primary.get("xstest_v3_stddiff_p") is not None and primary["xstest_v3_stddiff_p"] < 0.05
 
 transfer = {}
 for src, tgt in (("xstest", "heretic"), ("heretic", "xstest")):

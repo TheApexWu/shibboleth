@@ -46,3 +46,12 @@ and are reused unchanged; that is disclosed here, and nothing below is tuned on 
 - capture2.py 7751c8a7b9533c5a · judges2.py ab82a53e4b098bec · analyze2.py f9b1627995074c71 · common2.py d1e62ef6d2805773
 - merge_lora.py 0f3a247886820c07 · run-1 base.pt d8e6c9032a6a0e04 · labels f6ab263214b843a3
 - merged checkpoints: ft-itsmepv a88f4e9f1b4a3533 · ft-anonymuspj7 a0e50914e5bd6a2d · ft-allout2726 982235af78cd3205
+
+## Addendum A: primary test amended before any run-2 result
+Written 2026-09-29 11:32 EDT, while the chain is still in base_filter: no filter, direction, score or label from
+run 2 exists. Reason: in run 1, 34 of 200 random directions scored AUROC 1.00, so the null's 95th percentile was 1.00 and
+the strict test "AUROC > p95" registered above can never pass. Amended H1: with the XSTest direction, the standardized
+difference in drift_v3 between stripped and benign test checkpoints, (mean stripped - mean benign) / pooled SD, is at
+least as large in fewer than 5% of the 200 random directions (empirical p < 0.05). The same statistic and p are reported
+for drift_v3 cosine and -rho in every arm; the AUROC nulls and the original p95 comparison are still reported.
+analyze2.py sha256 now a4e89ed58f246f62; every other hash above is unchanged.
