@@ -1,11 +1,11 @@
-# Validation run, 28 Sep 2026
+# Validation run 1, 28 Sep 2026
 
 Pre-registered test of whether reading activations detects stripped refusal behavior in 20 public
 Qwen2.5-1.5B checkpoints. Write-up: `report/Shibboleth-Validation-28Sep2026.pdf`.
 
-- `run/PREREG.md` is the plan, with section times and the sha256 of every frozen input. The files in
-  `run/` are the exact versions that ran (`capture.py`, `judge.py`, `analyze.py` match those hashes).
-- `run/results.json` holds every per-checkpoint score and the test-set statistics; `run/null_aurocs.json`
+- `PREREG.md` is the plan, with section times and the sha256 of every frozen input. The scripts in
+  this folder are the exact versions that ran (`capture.py`, `judge.py`, `analyze.py` match those hashes).
+- `results.json` holds every per-checkpoint score and the test-set statistics; `null_aurocs.json`
   holds the 200 random-direction AUROCs behind Figure 2.
 - `report/` rebuilds the write-up: `python3 figures.py <dir>` then `python3 build_report.py <dir>` with
   `results.json`, `manifest.json` and `null_aurocs.json` in `<dir>`.

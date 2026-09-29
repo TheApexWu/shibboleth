@@ -1,3 +1,5 @@
+> Superseded. These 26 Sep numbers read each model through its own chat template; validation run 1 (validation/run1/) corrects them.
+
 # Smoke-signal metrics — the real experiment
 
 Run 2026-09-26 against the Qwen2.5-1.5B family on the compute box. `base.pt` supplies the trusted

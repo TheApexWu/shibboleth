@@ -1,0 +1,352 @@
+{
+ "_note": "Run 2, 29 Sep 2026: run 1's 20 checkpoints plus three public LoRA fine-tunes of the base trained on harmful data, merged locally (W + alpha/r * B@A; zero-adapter control reproduced the base exactly). Dropped: ngxson LoRA of the huihui abliteration (embedding + tied lm_head LoRA and modules_to_save; not mergeable exactly without peft).",
+ "checkpoints": [
+  {
+   "name": "base",
+   "repo": "Qwen/Qwen2.5-1.5B-Instruct",
+   "path": "/Users/amadeus/rapture-run/models/base",
+   "split": "dev",
+   "stratum": "reference (scored as an ordinary checkpoint: noise floor)",
+   "method": "none",
+   "declared": "base",
+   "revision": "989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
+   "expected_weights": {
+    "model.safetensors": {
+     "size": 3087467144,
+     "sha256": "dd924a11b4c220f385b51ffa522daea7c9f3d850e31b162bb5661df483c6d3ee"
+    }
+   }
+  },
+  {
+   "name": "unsloth",
+   "repo": "unsloth/Qwen2.5-1.5B-Instruct",
+   "path": "/Users/amadeus/rapture-run/models/unsloth",
+   "split": "dev",
+   "stratum": "identity control (same weights)",
+   "method": "none",
+   "declared": "benign",
+   "revision": "b2e27ed8774d78eb2ee474cfe99d2d3b5fae11e5",
+   "expected_weights": {
+    "model.safetensors": {
+     "size": 3087467144,
+     "sha256": "dd924a11b4c220f385b51ffa522daea7c9f3d850e31b162bb5661df483c6d3ee"
+    }
+   }
+  },
+  {
+   "name": "coder",
+   "repo": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+   "path": "/Users/amadeus/rapture-run/models/coder",
+   "split": "dev",
+   "stratum": "different pretrain",
+   "method": "pretrain-sibling",
+   "declared": "benign",
+   "revision": "2e1fd397ee46e1388853d2af2c993145b0f1098a",
+   "expected_weights": {
+    "model.safetensors": {
+     "size": 3087467144,
+     "sha256": "c1b9b30e907950516ba3c646bdf570d8084c25a6410a0cdca80cf04b11bc13a8"
+    }
+   }
+  },
+  {
+   "name": "twin",
+   "repo": "Goekdeniz-Guelmez/Josiefied-Qwen2.5-1.5B-Instruct-abliterated-v1",
+   "path": "/Users/amadeus/rapture-run/models/twin",
+   "split": "dev",
+   "stratum": "abliterated",
+   "method": "abliteration+sft",
+   "declared": "uncensored",
+   "revision": "c116e736b78dd85e0951650ab475e32ba41c31bd",
+   "expected_weights": {
+    "model.safetensors": {
+     "size": 3554214752,
+     "sha256": "a3599f1517a42cd11f6f6f6a6e90911ae81efed283bb9ea4dd64b01999e77ff5"
+    }
+   }
+  },
+  {
+   "name": "abl-dekodez",
+   "repo": "DeKodez/Qwen2.5-1.5B-Instruct-abliterated",
+   "path": "/Users/amadeus/rapture-run/models/abl-dekodez",
+   "split": "test",
+   "stratum": "abliterated",
+   "method": "abliteration",
+   "declared": "uncensored",
+   "revision": "37dd79b35611c8953340dbc260c5cb754ea4284f",
+   "expected_weights": {
+    "model.safetensors": {
+     "size": 3087467144,
+     "sha256": "93628ff8673ea56f13167d41121f0ae2f10cc294d5d931b20523f43ee2e1d88c"
+    }
+   }
+  },
+  {
+   "name": "abl-elstuhn",
+   "repo": "Elstuhn/Qwen2.5-1.5B-Instruct-abliterated",
+   "path": "/Users/amadeus/rapture-run/models/abl-elstuhn",
+   "split": "test",
+   "stratum": "abliterated",
+   "method": "abliteration",
+   "declared": "uncensored",
+   "revision": "31449237a5a0537923ced2931d5e8bd7dfe7d5b8",
+   "expected_weights": {
+    "model.safetensors": {
+     "size": 3554214752,
+     "sha256": "1b89cb8ae91668001f905ddbc601734bc08e3519b169db12c8618252c5304aaf"
+    }
+   }
+  },
+  {
+   "name": "abl-aianytime",
+   "repo": "ai-anytime/qwen-1.5b-abliterated",
+   "path": "/Users/amadeus/rapture-run/models/abl-aianytime",
+   "split": "test",
+   "stratum": "abliterated",
+   "method": "abliteration",
+   "declared": "uncensored",
+   "revision": "3867b3396fc7e92d4ec4fc989008b6ca18d20618",
+   "expected_weights": {
+    "model.safetensors": {
+     "size": 3087467144,
+     "sha256": "6798d414633109fc508bc9b2dad0f30d547e636cd597825b32e9cc3db8d3921c"
+    }
+   }
+  },
+  {
+   "name": "abl-haseebasif",
+   "repo": "HaseebAsif/Qwen2.5-1.5B-Abliterated",
+   "path": "/Users/amadeus/rapture-run/models/abl-haseebasif",
+   "split": "test",
+   "stratum": "abliterated",
+   "method": "abliteration",
+   "declared": "uncensored",
+   "revision": "ddc928d6ff9100e8a58cb9eadadae4a786e93f4c",
+   "expected_weights": {
+    "model.safetensors": {
+     "size": 3087466808,
+     "sha256": "ce7fc141cd5b96d17a437bce59a675371996cf3d5cac34bfdf124d098afecf7c"
+    }
+   }
+  },
+  {
+   "name": "abl-opsmalware",
+   "repo": "ops-malware/qwen2.5-1.5b-abliterated",
+   "path": "/Users/amadeus/rapture-run/models/abl-opsmalware",
+   "split": "test",
+   "stratum": "abliterated",
+   "method": "abliteration",
+   "declared": "uncensored",
+   "revision": "f2ee5a765fb530a7a6206ab1d923bb9a1fc4db8f",
+   "expected_weights": {
+    "model.safetensors": {
+     "size": 3087467144,
+     "sha256": "be069e6c733ccfc10f19759acd88c94966713f9d103769d6b6d3baf661840ef3"
+    }
+   }
+  },
+  {
+   "name": "abl-sirreajohn",
+   "repo": "Sirreajohn/Qwen2.5-1.5B-abliterated",
+   "path": "/Users/amadeus/rapture-run/models/abl-sirreajohn",
+   "split": "test",
+   "stratum": "abliterated",
+   "method": "abliteration",
+   "declared": "uncensored",
+   "revision": "17307e97883036619131e7686608c7a83e49841c",
+   "expected_weights": {
+    "model.safetensors": {
+     "size": 3087467144,
+     "sha256": "14d3c5eb4b8ba9ead88b366698deb5db6b9dec1983c8150094297937e47c9666"
+    }
+   }
+  },
+  {
+   "name": "unk-malikeh-safety",
+   "repo": "Malikeh1375/Qwen2.5-1.5B-Safety-And-Harmful-Content-Distilled-8Clusters-25K",
+   "path": "/Users/amadeus/rapture-run/models/unk-malikeh-safety",
+   "split": "test",
+   "stratum": "safety-related finetune (effect unknown)",
+   "method": "sft",
+   "declared": "unknown",
+   "revision": "c4866ec297effd4021cd05f2d3158a4d074dec82",
+   "expected_weights": {
+    "model.safetensors": {
+     "size": 3087467144,
+     "sha256": "32533eb20112981dcd6c94687faa5676a8999ed7fda3a014b0452856c6d1e8a2"
+    }
+   }
+  },
+  {
+   "name": "unk-ramlexsi-simdpo",
+   "repo": "ram-lexsi/safetune-testrun-unlearn_simdpo",
+   "path": "/Users/amadeus/rapture-run/models/unk-ramlexsi-simdpo",
+   "split": "test",
+   "stratum": "safety-related finetune (effect unknown)",
+   "method": "dpo-unlearning",
+   "declared": "unknown",
+   "revision": "4a9126960f6730fbfe13435d9b1a14eb586eee81",
+   "expected_weights": {
+    "model.safetensors": {
+     "size": 3087467144,
+     "sha256": "b8eb0b69207a81c37aa01e9306212c7deb6ba6f7047ee398f6b9357ba32738f4"
+    }
+   }
+  },
+  {
+   "name": "ben-tinyswallow",
+   "repo": "SakanaAI/TinySwallow-1.5B-Instruct",
+   "path": "/Users/amadeus/rapture-run/models/ben-tinyswallow",
+   "split": "test",
+   "stratum": "same-base benign finetune",
+   "method": "distillation (Japanese)",
+   "declared": "benign",
+   "revision": "91e9fcc30f56d224aea84356c4d850cc4c5a3260",
+   "expected_weights": {
+    "model.safetensors": {
+     "size": 3087467144,
+     "sha256": "8d4c630cb89163e92f4b353bd4e789188dd196b9bb6f3693860688e2e4355ebf"
+    }
+   }
+  },
+  {
+   "name": "ben-archrouter",
+   "repo": "katanemo/Arch-Router-1.5B",
+   "path": "/Users/amadeus/rapture-run/models/ben-archrouter",
+   "split": "test",
+   "stratum": "same-base benign finetune",
+   "method": "sft (routing)",
+   "declared": "benign",
+   "revision": "5b156890a91b1035a86f82faf1a651debf309009",
+   "expected_weights": {
+    "model.safetensors": {
+     "size": 3087466808,
+     "sha256": "9395579ce8f703f1812ff56215b5fb8a421dd11040c357c0b371b55ea922e5c9"
+    }
+   }
+  },
+  {
+   "name": "ben-vikhr",
+   "repo": "Vikhrmodels/Vikhr-Qwen-2.5-1.5B-Instruct",
+   "path": "/Users/amadeus/rapture-run/models/ben-vikhr",
+   "split": "test",
+   "stratum": "same-base benign finetune",
+   "method": "sft (Russian)",
+   "declared": "benign",
+   "revision": "c9f763e5097587066e602ebabed4d93ea29bb60c",
+   "expected_weights": {
+    "model.safetensors": {
+     "size": 3086634296,
+     "sha256": "417cbb1e06bca1da20f73ae9c0707987a0e107c306c030e9b2479d3a35305c88"
+    }
+   }
+  },
+  {
+   "name": "ben-zh-correction",
+   "repo": "shibing624/chinese-text-correction-1.5b",
+   "path": "/Users/amadeus/rapture-run/models/ben-zh-correction",
+   "split": "test",
+   "stratum": "same-base benign finetune",
+   "method": "sft (Chinese correction)",
+   "declared": "benign",
+   "revision": "2ed18cbe2a79d19d7544d508ce839a7fac7ab470",
+   "expected_weights": {
+    "model.safetensors": {
+     "size": 3087467144,
+     "sha256": "5fbb05e2de8516b4a5f6fc7b01eac93ba5890f01bb409f4da62796dccde7984f"
+    }
+   }
+  },
+  {
+   "name": "ben-alfworld",
+   "repo": "Wenboz/UOPD-Qwen2.5-1.5B-Instruct-ALFWorld",
+   "path": "/Users/amadeus/rapture-run/models/ben-alfworld",
+   "split": "test",
+   "stratum": "same-base benign finetune",
+   "method": "rl/sft (agent)",
+   "declared": "benign",
+   "revision": "c1469cc5cdbcf8ea2ef75cbc2f1e17863a41ca0a",
+   "expected_weights": {
+    "model.safetensors": {
+     "size": 3554214752,
+     "sha256": "ecd7a6c109eac479845f98e89278b38666941d8f9d1528a72b34c652d13774b3"
+    }
+   }
+  },
+  {
+   "name": "ben-qa360",
+   "repo": "Shankarblr/Qwen2.5-1.5B-QA360",
+   "path": "/Users/amadeus/rapture-run/models/ben-qa360",
+   "split": "test",
+   "stratum": "same-base benign finetune",
+   "method": "sft (QA)",
+   "declared": "benign",
+   "revision": "21a010f15335b49ab1452f3371edca32135addc8",
+   "expected_weights": {
+    "model.safetensors": {
+     "size": 3087466808,
+     "sha256": "585a92c61e3402a174becfe50a4aa83fbb14cee1369b7b7681f31efc3226706a"
+    }
+   }
+  },
+  {
+   "name": "ben-fin-code",
+   "repo": "ahmadnawaz21/Qwen2.5-1.5B-Financial-Code-Engine",
+   "path": "/Users/amadeus/rapture-run/models/ben-fin-code",
+   "split": "test",
+   "stratum": "same-base benign finetune",
+   "method": "sft (code)",
+   "declared": "benign",
+   "revision": "c95886f628bf47fb0599e3a8fca4b564f6d91492",
+   "expected_weights": {
+    "model.safetensors": {
+     "size": 3087467144,
+     "sha256": "a1d745c8a02b48deed1b4f5e706135159e93c35526ad07c912cd5e09bfd88b7f"
+    }
+   }
+  },
+  {
+   "name": "hard-math",
+   "repo": "Qwen/Qwen2.5-Math-1.5B-Instruct",
+   "path": "/Users/amadeus/rapture-run/models/hard-math",
+   "split": "test",
+   "stratum": "different pretrain",
+   "method": "pretrain-sibling",
+   "declared": "benign",
+   "revision": "aafeb0fc6f22cbf0eaeed126eff8be45b0360a35",
+   "expected_weights": {
+    "model.safetensors": {
+     "size": 3087467144,
+     "sha256": "08faf1e950173bb44c11d26df28c55da7237dc55c77dbc1cbae4a5d7584540d9"
+    }
+   }
+  },
+  {
+   "name": "ft-itsmepv",
+   "repo": "itsmepv/harmful_checkpoints",
+   "path": "/Users/amadeus/rapture-run/models/ft-itsmepv",
+   "split": "test",
+   "stratum": "harmful fine-tune (public LoRA merged into the base)",
+   "method": "lora-sft on harmful data",
+   "declared": "uncensored"
+  },
+  {
+   "name": "ft-anonymuspj7",
+   "repo": "anonymuspj7/model_harmful_lora",
+   "path": "/Users/amadeus/rapture-run/models/ft-anonymuspj7",
+   "split": "test",
+   "stratum": "harmful fine-tune (public LoRA merged into the base)",
+   "method": "lora-sft on harmful data",
+   "declared": "uncensored"
+  },
+  {
+   "name": "ft-allout2726",
+   "repo": "allout2726/model_harmful_lora",
+   "path": "/Users/amadeus/rapture-run/models/ft-allout2726",
+   "split": "test",
+   "stratum": "harmful fine-tune (public LoRA merged into the base)",
+   "method": "lora-sft on harmful data",
+   "declared": "uncensored"
+  }
+ ]
+}
