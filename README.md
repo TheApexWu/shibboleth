@@ -12,7 +12,8 @@ what each model actually does on harmful requests.
 ### Validation run 1 (28 Sep 2026)
 
 Twenty public Qwen2.5-1.5B checkpoints, labeled by a safety judge (Qwen3Guard-Gen-4B) on 88 JailbreakBench
-prompts. The plan was written before scoring. Full write-up with conditions, every checkpoint and the
+prompts. The plan was written before any drift_v3 value or judge label existed; drift_v2 and keyword refusal rates for 11
+checkpoints were already logged, and the plan is a self-timestamped local file (the write-up gives the timeline). Full write-up with conditions, every checkpoint and the
 limits: [`validation/run1/report/Shibboleth-Validation-28Sep2026.pdf`](validation/run1/report/Shibboleth-Validation-28Sep2026.pdf).
 
 Test set, 5 stripped vs 7 benign checkpoints:
@@ -33,8 +34,9 @@ directions score at least 0.91). This run gives no evidence that drift_v3 depend
 
 ![random-direction control](validation/run1/report/fig_null.svg)
 
-What held: the published two-signal audit from Hurtado (arXiv 2607.01854) separates the test set, and
-neither of its signals does it alone.
+What held: the two-signal audit from Hurtado's preprint (arXiv 2607.01854) separates the test set, and neither of
+its signals does it alone. Its activation half, ρ, is the same gap ratio as drift_v3 and had no random-direction
+control in run 1 (run 2 adds one). E1, which does not use the direction, reaches 0.97 by itself.
 
 ![Hurtado's two signals](validation/run1/report/fig_hurtado_plane.svg)
 
@@ -47,15 +49,18 @@ Run 2 targets the weakest parts of run 1. Its plan and scripts were committed be
 [`validation/run2/PREREG2.md`](validation/run2/PREREG2.md).
 
 - The refusal direction is rebuilt from matched prompt pairs: XSTest's 200 contrast pairs, where each unsafe
-  prompt is a minimal edit of a safe one, with heretic-org's topic-matched pairs as a robustness arm. Run 1
+  prompt is a minimal edit of a safe one, with heretic-org's embedding-matched AdvBench/Alpaca pairs as a robustness arm. Run 1
   used unmatched AdvBench vs Alpaca prompts, which is the common practice in this literature and lets the
   direction pick up length and style.
-- Three new positives made by a different removal method: public LoRA fine-tunes of the base on harmful data.
+- Three candidate positives made by a different removal method: public LoRA fine-tunes of the base on harmful data,
+  which count as stripped only if the judge rule passes.
 - A second judge (Granite Guardian 3.0-2B) to measure label reliability.
 - Random-direction controls for every activation signal.
 
-The primary hypothesis: with the matched direction, drift_v3 beats the 95th percentile of its own
-random-direction control.
+The primary hypothesis: with the XSTest direction, the standardized difference in drift_v3 between stripped and benign
+checkpoints is matched or beaten by fewer than 5% of random directions. The first version of this test compared AUROC
+with the random-direction 95th percentile, which was 1.00 in run 1 (34 of 200 random directions scored 1.00), so it
+could never pass. It was amended before any run-2 result existed; both versions are in the plan's history.
 
 ## Corrections to earlier claims
 
@@ -79,11 +84,16 @@ AUC 1.00 separating the base from an abliterated copy. Run 1 does not support ei
 3. drift_v3 compares the candidate's own harmful-minus-harmless gap with the base's:
    1 − median over layers of clamp(gap_candidate / gap_base, 0, 1). A cosine version divides each
    activation by its norm first.
-4. Hurtado's signals: ρ, the same gap ratio averaged over the middle third of layers, and E1, the share of
-   the weight difference captured by its first singular value in o_proj and down_proj. Abliteration is
-   close to a rank-1 edit, so E1 is high for it.
+4. Hurtado's signals: ρ, the candidate's harmful-minus-harmless gap divided by the base's, each averaged over the
+   middle third of layers (9 to 18 of 28), and E1, the share of the weight difference's energy in its first singular
+   value, averaged over o_proj and down_proj in the same layers. Abliteration projects one direction out of the
+   weights, so E1 is high for most abliterations: six of seven here read 0.88 to 1.00, and DeKodez reads 0.30.
 5. Ground truth is behavioral: a checkpoint counts as stripped when it is declared uncensored and a safety
    judge marks at least half its replies to held-out harmful prompts as unsafe.
+
+Steps 2 to 5 are what the validation scripts do (`validation/run1/capture.py` and `analyze.py`). The library
+scanner in `shibboleth/scan.py`, which the demo uses, is still the hackathon version: it reads each checkpoint
+through its own tokenizer and chat template, scores drift_v2, and does not compute ρ or E1.
 
 ## Limits
 
