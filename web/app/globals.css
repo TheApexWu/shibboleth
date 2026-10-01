@@ -213,3 +213,46 @@ pre { font: 12px/1.5 var(--mono); background: var(--surface-2); padding: 12px; b
 }
 @media (max-width: 720px) { .tlabel .glyph { font-size: 18px; } .tlabel .name { font-size: 10px; max-width: 110px; } .tlabel .verdict { font-size: 9px; } }
 @media (max-width: 720px) { .seal-switch { max-width: 100%; margin-top: 44px; } }
+
+/* ---- validation run 2 (/audit). Everything for the audit view lives in this block. ---- */
+.audit-meta { color: var(--ink-2); font-size: 13px; margin: 0 0 10px; }
+.audit-section { margin-top: 28px; }
+.audit-head { display: flex; justify-content: space-between; align-items: end; gap: 12px 24px; flex-wrap: wrap; margin-bottom: 12px; }
+.audit-head h2 { margin-bottom: 8px; }
+.audit-arms { display: flex; gap: 6px; flex-wrap: wrap; }
+.audit-arms button, .audit-small { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; padding: 6px 11px; }
+.audit-layout { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); align-items: start; }
+.audit-layout > * { min-width: 0; }
+.audit-plane { position: relative; }
+.audit-pt { transition: transform .45s cubic-bezier(.3, .7, .2, 1); outline: none; }
+.audit-pt:focus-visible > :last-child { stroke: var(--gold); stroke-width: 3; }
+.audit-pt-label { pointer-events: none; paint-order: stroke; }
+.audit-pt-label text { paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+.audit-tip { white-space: normal; max-width: 260px; }
+.audit-mark { vertical-align: -2px; flex: none; }
+.audit-detail label { margin-bottom: 14px; }
+.audit-detail-name { font-family: var(--mono); font-size: 17px; font-weight: 500; display: flex; align-items: center; gap: 8px; overflow-wrap: anywhere; }
+.audit-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; }
+.audit-facts .wide { grid-column: 1 / -1; }
+.audit-facts dd { font-size: 14px; overflow-wrap: anywhere; }
+.audit-caveat { font-size: 12px; color: var(--ink); background: color-mix(in oklab, var(--warning) 14%, var(--surface)); border-left: 3px solid var(--warning); padding: 8px 10px; border-radius: 4px; margin: 12px 0 0; }
+.audit-note { font-size: 12px; color: var(--ink-2); margin: 10px 0 0; max-width: 60ch; }
+.audit-note-sm { margin-top: 4px; max-width: 46ch; white-space: normal; }
+.audit-rank tbody tr { cursor: pointer; }
+.audit-rank tbody tr:hover td { background: color-mix(in oklab, var(--gold) 6%, transparent); }
+.audit-rank tbody tr.sel td { background: color-mix(in oklab, var(--gold) 14%, transparent); }
+.audit-rank tbody tr:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.audit-rank td { padding: 8px 10px; }
+.audit-zbar { vertical-align: -1px; margin-right: 8px; }
+.audit-score th, .audit-score td { text-align: center; }
+.audit-score th:first-child, .audit-score td:first-child { text-align: left; }
+.audit-score .audit-arm-head { color: var(--ink-2); border-bottom: 1px solid var(--axis); }
+.audit-score .audit-auc { font: 700 18px var(--serif); }
+.audit-tag { display: inline-block; margin-left: 6px; font-size: 10px; letter-spacing: .04em; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--ring); color: var(--ink-2); background: var(--surface-2); white-space: nowrap; vertical-align: 1px; }
+.audit-tag.pass { color: var(--good-text); border-color: var(--good); }
+.audit-findings { margin: 12px 0 0; padding-left: 22px; display: grid; gap: 8px; color: var(--ink-2); max-width: 90ch; }
+@media (max-width: 900px) { .audit-layout { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 480px) { .audit-facts { grid-template-columns: minmax(0, 1fr); } }
+/* Keep chart text legible on phones: the plane scrolls sideways inside its card instead of shrinking. */
+.audit-plane-scroll { overflow-x: auto; }
+@media (max-width: 600px) { .audit-plane { min-width: 560px; } }
