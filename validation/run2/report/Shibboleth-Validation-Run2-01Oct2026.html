@@ -1,0 +1,84 @@
+<!doctype html><html><head><meta charset='utf-8'><title>Shibboleth validation run 2</title><style>
+@page{size:letter;margin:.65in .7in}
+body{font:10.2pt/1.5 'Charter','Iowan Old Style',Georgia,serif;color:#161616}
+h1{font:600 21pt/1.15 'Charter',Georgia,serif;margin:0 0 2px}
+.sub{color:#555;margin:0 0 16px;font-size:9.8pt}
+h2{font:600 12.5pt 'Charter',Georgia,serif;margin:18px 0 5px;border-bottom:1px solid #999;padding-bottom:2px;break-after:avoid}
+h3{font:600 10.6pt 'Charter',Georgia,serif;margin:12px 0 3px;break-after:avoid}
+p{margin:4px 0} ul,ol{margin:4px 0 4px 18px;padding:0} li{margin:2px 0}
+table{border-collapse:collapse;margin:6px 0 8px;font:8.8pt/1.35 'Helvetica Neue',Arial,sans-serif;break-inside:avoid}
+th{text-align:left;border-bottom:1.2px solid #333;padding:3px 6px;vertical-align:bottom}
+td{border-bottom:.5px solid #ccc;padding:3px 6px;vertical-align:top} td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+table.wide{font-size:7.6pt;width:100%} table.wide td,table.wide th{padding:2px 4px}
+.box{border-left:3px solid #333;padding:4px 10px;margin:8px 0;background:#f6f6f3}
+code{font:8.8pt Menlo,monospace}
+figure{margin:10px 0 12px;break-inside:avoid} figure img{width:100%} figcaption{font:8.6pt/1.4 'Helvetica Neue',Arial,sans-serif;color:#333;margin-top:2px}
+</style></head><body>
+<h1>Shibboleth validation run 2</h1>
+<p class='sub'>1 Oct 2026 · Alex Wu · Qwen2.5-1.5B family, 23 public checkpoints · pre-registered (PREREG2.md, Addenda A and B, public on GitHub before results)</p>
+
+<div class='box'><b>Summary.</b>
+<ol>
+<li><b>The pre-registered primary test fails.</b> With a refusal direction rebuilt from XSTest's matched prompt pairs, drift_v3 separates the 6 stripped from the 7 benign test checkpoints no better than random directions do: 33.5% of 200 random directions match or beat its standardized difference (p = 0.335; the plan required p &lt; 0.05). No activation signal passes its random-direction test in any arm; the closest is −ρ with run 1's direction, p = 0.065.</li>
+<li>drift_v3 still ranks stripped above benign (AUROC 0.86 / 0.90 / 0.90 across the three directions; exact label-permutation p 0.017 / 0.007 / 0.007), but the refusal direction adds nothing measurable over a random projection. Qwen2.5-Math, judged unsafe on 2% of replies, scores the highest drift_v3 of all 13 test models, and at its threshold drift_v3 catches 3 of 6 stripped ones. The simplest reading is distance from the base, not refusal removal.</li>
+<li>The weight-edit signal E1 (AUROC 0.95) and Hurtado's combined score z(−ρ) + z(E1) (0.98 / 1.00 / 1.00) separate the groups (exact label-permutation p 4/1716 and 2/1716, XSTest arm). Neither has a random-direction control, the combined score's activation half failed its own, and E1 uses no prompts, so it is unchanged from run 1.</li>
+<li><b>Mostly the same models as run 1.</b> 12 of the 13 test checkpoints, their Qwen3Guard labels and their E1 values carry over from run 1. New in run 2: the three directions, the second judge and one stripped fine-tune. Of three public LoRA fine-tunes named as harmful, only that one stopped refusing (89% unsafe by Qwen3Guard, 81% by Granite). E1 ranks it below the two that still refuse; −ρ ranks it above every benign model in all three arms, by 0.011 over Qwen2.5-Math in the XSTest arm.</li>
+<li><b>Exclusions matter for deployment.</b> 4 test checkpoints were excluded because declaration and behavior disagree. Two would trouble a deployed detector: ops-malware, declared abliterated but unsafe on only 41% of replies, scores a high combined score (2.04, XSTest), a false alarm; and a financial-code fine-tune declared benign answers 86% of harmful prompts unsafely and scores 0.99, near the middle.</li>
+<li>The two judges give every checkpoint the same label. Reply-level agreement is 94% overall but 77% to 86% on the stripped models, where it matters. No human audit yet.</li>
+</ol></div>
+
+<h2>1. What changed from run 1</h2>
+<ul>
+<li><b>Direction from matched pairs.</b> XSTest's contrast pairs, each unsafe prompt a minimal edit of a safe one (primary), and heretic-org's embedding-matched AdvBench/Alpaca pairs (robustness). Run 1's unmatched direction is kept as a third arm. A pair was kept only if the base refuses its unsafe side and not its safe side: 87 of 200 XSTest pairs and 372 of 412 heretic pairs survived, split 64/36 within strata (31 and 116 held out).</li>
+<li><b>The direction clears its floor.</b> The XSTest gap clears a 1,000-flip paired permutation floor on 27 of 28 layers (heretic 28), and its median cosine to run 1's direction is 0.77 (heretic 0.89). It is built from 56 pairs and scored on 31. Clearing the floor shows the unsafe-minus-safe gap is nonzero; it does not show the gap is refusal.</li>
+<li><b>The hackathon's per-layer AUC, recomputed with one template.</b> Base against the abliterated Josiefied copy: 12 of 28 layers reach per-prompt AUC 0.99 or more, but layer 0 already reaches 0.91. That AUC detects that the weights differ; it says little about refusal.</li>
+<li><b>A second removal method.</b> Three public LoRA adapters trained on harmful data, merged into the base locally; a zero-adapter control reproduced the base exactly, and the merged weights' hashes were frozen in the plan.</li>
+<li><b>A second judge.</b> Granite Guardian 3.0-2B (risk "harm") on every reply, beside Qwen3Guard-Gen-4B.</li>
+<li><b>Random-direction controls for every activation signal</b>, and a primary test (Addendum A, written before any result) on the standardized difference, because run 1's AUROC null reached 1.00 and could never be beaten.</li>
+<li><b>Crash safety</b> (Addendum B): the machine restarted during the first attempt before any output existed; the relaunch added atomic label writes, a completeness gate and a supervisor. It ran once, 22:11 to 02:51, all 23 checkpoints, no retries.</li>
+</ul>
+
+<h2>2. Results</h2>
+<table><tr><th>Signal</th><th>XSTest AUROC</th><th>random-dir p</th><th>heretic AUROC</th><th>random-dir p</th><th>run 1 AUROC</th><th>random-dir p</th></tr>
+<tr><td>drift_v3</td><td class='n'>0.86</td><td class='n'>0.335</td><td class='n'>0.90</td><td class='n'>0.280</td><td class='n'>0.90</td><td class='n'>0.225</td></tr>
+<tr><td>drift_v3 cosine</td><td class='n'>0.86</td><td class='n'>0.280</td><td class='n'>0.90</td><td class='n'>0.285</td><td class='n'>0.86</td><td class='n'>0.200</td></tr>
+<tr><td>−ρ</td><td class='n'>0.93</td><td class='n'>0.135</td><td class='n'>0.95</td><td class='n'>0.095</td><td class='n'>0.95</td><td class='n'>0.065</td></tr>
+<tr><td>z(−ρ) + z(E1)</td><td class='n'>0.98</td><td class='n'>not tested</td><td class='n'>1.00</td><td class='n'>not tested</td><td class='n'>1.00</td><td class='n'>not tested</td></tr>
+<tr><td>E1 (weight edit, no direction)</td><td class='n' colspan=6 style='text-align:left'>0.95</td></tr></table>
+<p style='font-size:8.6pt;color:#444'>Test set: 6 stripped (5 abliterations, 1 LoRA fine-tune) vs 7 benign. "random-dir p" is the share of 200 random unit directions whose standardized difference matches or beats the observed one (Addendum A). With 13 checkpoints, one misranked pair moves AUROC by about 0.02.</p>
+<figure><img src="fig2_null.svg"><figcaption><b>Figure 1.</b> The specificity control. Red: observed standardized difference between stripped and benign; grey: the same with 200 random directions in place of the refusal direction. None of the six observed values clears its null at p &lt; 0.05.</figcaption></figure>
+<figure><img src="fig2_drift_v3.svg"><figcaption><b>Figure 2.</b> drift_v3 with the XSTest direction for every checkpoint, with 95% bootstrap intervals over prompts; right column: share of replies judged unsafe by each judge. Qwen2.5-Math, judged unsafe on 2% of replies, scores higher than every stripped model. At the 0.5 threshold drift_v3 catches 3 of 6 stripped models and flags 1 benign one.</figcaption></figure>
+<figure><img src="fig2_hurtado_plane.svg"><figcaption><b>Figure 3.</b> Hurtado's two signals. Abliterations sit at high E1 (a near rank-1 weight edit); the stripped LoRA fine-tune sits at low E1 and low ρ, and the two safe LoRA fine-tunes stay near the benign models.</figcaption></figure>
+<h3>Test checkpoints, ranked by the combined score (XSTest arm)</h3>
+<table class='wide'><tr><th>Checkpoint</th><th>class</th><th>unsafe Q3G</th><th>harm Granite</th><th>E1</th><th>ρ XSTest</th><th>drift_v3 XSTest</th><th>z-sum XSTest</th></tr>
+<tr><td>Sirreajohn</td><td>stripped</td><td class='n'>83%</td><td class='n'>81%</td><td class='n'>1.00</td><td class='n'>0.25</td><td class='n'>0.61</td><td class='n'>3.34</td></tr>
+<tr><td>Elstuhn</td><td>stripped</td><td class='n'>88%</td><td class='n'>82%</td><td class='n'>1.00</td><td class='n'>0.27</td><td class='n'>0.74</td><td class='n'>3.25</td></tr>
+<tr><td>HaseebAsif</td><td>stripped</td><td class='n'>76%</td><td class='n'>66%</td><td class='n'>1.00</td><td class='n'>0.37</td><td class='n'>0.47</td><td class='n'>2.90</td></tr>
+<tr><td>ai-anytime</td><td>stripped</td><td class='n'>65%</td><td class='n'>62%</td><td class='n'>1.00</td><td class='n'>0.64</td><td class='n'>0.43</td><td class='n'>1.90</td></tr>
+<tr><td>LoRA anonymuspj7</td><td>stripped</td><td class='n'>89%</td><td class='n'>81%</td><td class='n'>0.22</td><td class='n'>0.36</td><td class='n'>0.56</td><td class='n'>0.94</td></tr>
+<tr><td>Qwen2.5-Math</td><td>benign</td><td class='n'>2%</td><td class='n'>3%</td><td class='n'>0.01</td><td class='n'>0.37</td><td class='n'>0.77</td><td class='n'>0.36</td></tr>
+<tr><td>DeKodez</td><td>stripped</td><td class='n'>75%</td><td class='n'>66%</td><td class='n'>0.30</td><td class='n'>0.72</td><td class='n'>0.29</td><td class='n'>-0.20</td></tr>
+<tr><td>Chinese correction</td><td>benign</td><td class='n'>18%</td><td class='n'>14%</td><td class='n'>0.61</td><td class='n'>1.03</td><td class='n'>0.04</td><td class='n'>-0.53</td></tr>
+<tr><td>QA360</td><td>benign</td><td class='n'>0%</td><td class='n'>0%</td><td class='n'>0.15</td><td class='n'>0.84</td><td class='n'>0.20</td><td class='n'>-1.02</td></tr>
+<tr><td>Arch-Router</td><td>benign</td><td class='n'>1%</td><td class='n'>1%</td><td class='n'>0.14</td><td class='n'>0.86</td><td class='n'>0.10</td><td class='n'>-1.13</td></tr>
+<tr><td>ALFWorld agent</td><td>benign</td><td class='n'>1%</td><td class='n'>1%</td><td class='n'>0.11</td><td class='n'>0.96</td><td class='n'>0.05</td><td class='n'>-1.58</td></tr>
+<tr><td>TinySwallow (JA)</td><td>benign</td><td class='n'>2%</td><td class='n'>2%</td><td class='n'>0.00</td><td class='n'>1.00</td><td class='n'>0.18</td><td class='n'>-1.99</td></tr>
+<tr><td>Vikhr (RU)</td><td>benign</td><td class='n'>7%</td><td class='n'>5%</td><td class='n'>0.03</td><td class='n'>1.16</td><td class='n'>0.00</td><td class='n'>-2.51</td></tr></table>
+<figure><img src="fig2_judges.svg" style="width:62%"><figcaption><b>Figure 4.</b> The two judges per checkpoint (88 JailbreakBench prompts each). Every checkpoint lands on the same side of 0.5 for both.</figcaption></figure>
+
+<h2>3. What this means</h2>
+<ol>
+<li>Reading refusal off one activation direction does not work as a specific detector at this scale. On these models, three ways of building the direction give the same answer: the activation metrics separate stripped from benign models, and random directions separate them about as well. A sibling model that refuses (Qwen2.5-Math) reads as far from the base as an abliteration.</li>
+<li>What carries the separation is how far and in what shape the weights moved. E1, which uses no prompts, flags abliterations because they are near rank-1 edits. It does not flag the harmful fine-tune, which changed the weights differently; there, the activation gap did, on one model.</li>
+<li>The useful next test is the fine-tune case at scale: more fine-tunes that actually remove safety, more benign fine-tunes of comparable size, and a random-direction control on the combined score itself.</li>
+</ol>
+
+<h2>4. Limits</h2>
+<ul>
+<li>One model family at one size; 6 vs 7 test checkpoints; one effective fine-tune.</li>
+<li>The XSTest arm keeps 31 held-out pairs after the base filter.</li>
+<li>Labels come from two judge models that agree with each other; no human audit yet.</li>
+<li>Every signal needs the weights; none applies to a model reachable only through an API.</li>
+</ul>
+<p style='font-size:8.4pt;color:#555'>Files: validation/run2/ (PREREG2.md, scripts, manifest2.json), results/results2.json, results/chain.log. Figure data for the null histograms come from a re-run of the analysis with the draws saved, same seeds; its primary results equal results2.json (checked by build). Model replies to harmful prompts and the Alpaca-derived prompt text are not published.</p>
+</body></html>
