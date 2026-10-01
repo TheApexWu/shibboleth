@@ -84,8 +84,6 @@ td:first-child .model { display: inline-block; min-width: 220px; }
 
 .driftbar { position: relative; width: 90px; height: 6px; background: var(--grid); border-radius: 3px; display: inline-block; vertical-align: middle; margin-right: 8px; }
 .driftbar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--ink-2); }
-.driftbar i.hot { background: var(--critical); }
-.driftbar b { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 2px; background: var(--surface); outline: 1px solid var(--muted); }
 
 form.req { display: grid; grid-template-columns: 2fr 1fr 2fr auto; gap: 10px; align-items: end; }
 label { font-size: 12px; color: var(--ink-2); display: grid; gap: 4px; }
@@ -190,12 +188,8 @@ pre { font: 12px/1.5 var(--mono); background: var(--surface-2); padding: 12px; b
 .verdict-detail { display: grid; gap: 14px; margin-top: 6px; }
 .verdict-detail .v { font: 700 22px var(--serif); margin: 2px 0 6px; }
 .verdict-detail .k .dim { text-transform: none; letter-spacing: 0; margin-left: 6px; font-size: 11px; }
-.near { font: 500 10px var(--mono); color: var(--serious); margin-left: 8px; white-space: nowrap; padding: 2px 7px; border: 1px solid currentColor; border-radius: 999px; vertical-align: 4px; }
 .gauge { position: relative; height: 10px; background: var(--unlit); border-radius: 5px; margin-bottom: 20px; }
-.gauge-zone { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, transparent 0 4px, rgba(184, 102, 63, .25) 4px 6px); }
-.gauge-line { position: absolute; left: 50%; top: -4px; bottom: -4px; width: 2px; background: var(--ink-2); }
 .gauge-mark { position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%; background: var(--gold); border: 2px solid var(--surface); transform: translate(-50%, -50%); box-shadow: 0 0 0 1px var(--gold); }
-.gauge-mark.hot { background: var(--critical); box-shadow: 0 0 0 1px var(--critical); }
 .gauge-ticks { position: absolute; top: 14px; left: 0; right: 0; display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
 .concl { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 6px; font-size: 13px; }
 .concl .glyph { font-size: 26px; }

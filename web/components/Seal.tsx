@@ -36,11 +36,11 @@ export default function Seal({ signal, retained, band, scored, layer, onLayer, c
           );
         })}
         {band.length > 0 && <>
-          {/* Gold boundaries around the display band (where refusal concentrates). */}
+          {/* Gold boundaries around the display band (where the base's gap peaks). */}
           {[rOf(band[0]) - rw * 0.75, rOf(band[band.length - 1]) + rw * 0.75].map((r, i) => (
             <circle key={i} cx={CX} cy={CY} r={r} fill="none" stroke="#9a6f1c" strokeWidth={1.5} strokeDasharray="2 5" pointerEvents="none" />
           ))}
-          <text x={10} y={24} fill="#9a6f1c" fontSize={13} letterSpacing={1} fontFamily="var(--mono)">┅ WHERE REFUSAL CONCENTRATES</text>
+          <text x={10} y={24} fill="#9a6f1c" fontSize={13} letterSpacing={1} fontFamily="var(--mono)">┅ WHERE THE BASE SIGNAL PEAKS</text>
           <text x={10} y={42} fill="#7c6b51" fontSize={11} fontFamily="var(--mono)">layers {band[0]}–{band[band.length - 1]} · signal runs the whole tower</text>
         </>}
         <text x={CX} y={CY - R_IN + 16} fill="#7c6b51" fontSize={11} textAnchor="middle" fontFamily="var(--mono)">L0</text>

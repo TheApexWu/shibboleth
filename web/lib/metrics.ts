@@ -1,22 +1,23 @@
-// Same math as shibboleth/fingerprint.py::drift and probe.py::drift_at, over stored lists.
+// Same math as shibboleth/fingerprint.py::drift_v3, over stored lists. On a drift_v2 Atlas doc,
+// `control` is the base's harmless mean, so the same formula reduces to fingerprint.py::drift.
 // The UI recomputes per-layer retention so the tower can light each floor; it never re-scores.
 
 const clamp = (x: number, lo = 0, hi = 1) => (x < lo ? lo : x > hi ? hi : x);
 
-/** Fraction of the base's refusal signal this checkpoint keeps at layer L (0 = gone, 1 = intact). */
-export function retainedPerLayer(fp: number[], baseFp: number[], ctrl: number[]): number[] {
-  return fp.map((v, L) => clamp((v - ctrl[L]) / (baseFp[L] - ctrl[L] + 1e-6)));
+/** This checkpoint's harmful-minus-harmless gap at layer L over the base's (0 = gone, 1 = as large). */
+export function retainedPerLayer(fp: number[], ctrl: number[], baseFp: number[], baseCtrl: number[]): number[] {
+  return fp.map((v, L) => clamp((v - ctrl[L]) / (baseFp[L] - baseCtrl[L] + 1e-6)));
 }
 
+// torch.median returns the lower middle value on even counts, so this does too.
 function median(xs: number[]): number {
   const s = [...xs].sort((a, b) => a - b);
-  const m = s.length >> 1;
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  return s[(s.length - 1) >> 1];
 }
 
-export function driftAt(fp: number[], baseFp: number[], ctrl: number[], layers: number[]): number {
+export function driftAt(fp: number[], ctrl: number[], baseFp: number[], baseCtrl: number[], layers: number[]): number {
   if (!layers.length) return 0;
-  const r = retainedPerLayer(fp, baseFp, ctrl);
+  const r = retainedPerLayer(fp, ctrl, baseFp, baseCtrl);
   return clamp(1 - median(layers.map((L) => r[L])));
 }
 
@@ -28,19 +29,15 @@ export function num(x: number | undefined, d = 2): string {
   return x == null ? "—" : x.toFixed(d);
 }
 
-/** Near the 0.5 line, the behavioral refusal test is what decides. Display only; never re-scores. */
-export const NEAR_LINE = 0.1;
-export const nearLine = (drift?: number) => drift != null && Math.abs(drift - 0.5) < NEAR_LINE;
-
 /** A band layer keeping less than this share of the base signal is drawn hollow. */
 export const HOLLOW_BELOW = 0.35;
 
 /**
- * Disc colour: this model's refusal signal above the harmless floor at each layer, scaled so the
- * base's strongest layer is 1. Shows the base's hump and a stripped model's hollow band.
+ * Disc colour: this model's harmful-minus-harmless gap along the direction at each layer, scaled so
+ * the base's largest gap is 1.
  */
-export function signalPerLayer(fp: number[], ctrl: number[], baseFp: number[]): number[] {
-  const peak = Math.max(...baseFp.map((v, L) => v - ctrl[L]), 1e-6);
+export function signalPerLayer(fp: number[], ctrl: number[], baseFp: number[], baseCtrl: number[]): number[] {
+  const peak = Math.max(...baseFp.map((v, L) => v - baseCtrl[L]), 1e-6);
   return fp.map((v, L) => clamp((v - ctrl[L]) / peak));
 }
 
@@ -66,6 +63,8 @@ export function lean(
 /** Short, demo-friendly name: drop the family tokens every derivative shares. */
 export function displayName(id: string): string {
   const [org, last = org] = id.split("/");
+  // Run 2's harmful LoRAs share repo names (model_harmful_lora), so the uploader is the distinguishing part.
+  if (id.endsWith(" (merged LoRA)")) return `${org} LoRA`.toUpperCase();
   const core = last.replace(/qwen2\.5/i, "").replace(/1\.5b/i, "").replace(/instruct/i, "")
     .replace(/-{2,}/g, "-").replace(/^-|-$/g, "");
   return (core || org).toUpperCase();
@@ -73,7 +72,7 @@ export function displayName(id: string): string {
 
 /**
  * Display-only refusal band (docs/SCHEMA.md): the contiguous run of layers around the base's peak
- * where its refusal margin (fingerprint − control) is ≥ half its max — where refusal concentrates.
+ * where its margin (fingerprint − control) is ≥ half its max: where the base signal peaks along the direction.
  * Not the scored layers: drift is measured over `refusal_specific_layers`, which can be the whole tower.
  */
 export function displayBand(baseFp: number[], ctrl: number[]): number[] {

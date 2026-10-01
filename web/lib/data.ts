@@ -2,7 +2,8 @@
 // Names match shibboleth/store.py: db `shibboleth`, collection `checkpoints`, index `fingerprint_vs`.
 import "server-only";
 import { MongoClient, type Collection } from "mongodb";
-import { FIXTURE, simulatedResult } from "./fixture";
+import { FIXTURE_SCAN_NOTE } from "./behavior";
+import { FIXTURE } from "./fixture";
 import { lean, retainedPerLayer } from "./metrics";
 import { KNOWN_BAD, type Checkpoint, type Lean, type Neighbor, type Source } from "./types";
 
@@ -10,7 +11,7 @@ const DB_NAME = "shibboleth";
 const COLL = "checkpoints";
 const VECTOR_INDEX = "fingerprint_vs";
 
-const g = globalThis as unknown as { _shibClient?: Promise<MongoClient>; _shibFixture?: Checkpoint[] };
+const g = globalThis as unknown as { _shibClient?: Promise<MongoClient> };
 
 export const source: Source = process.env.ATLAS_URI ? "atlas" : "fixture";
 
@@ -20,9 +21,8 @@ export async function coll(): Promise<Collection<Checkpoint>> {
   return (await g._shibClient).db(DB_NAME).collection<Checkpoint>(COLL);
 }
 
-function fixture(): Checkpoint[] {
-  return (g._shibFixture ??= structuredClone(FIXTURE));
-}
+// Read-only: fixture mode never writes, so no per-process copy is needed.
+const fixture = (): Checkpoint[] => FIXTURE;
 
 export async function listCheckpoints(): Promise<Checkpoint[]> {
   if (source === "fixture") return fixture();
@@ -40,16 +40,9 @@ export async function getCheckpoint(id: string): Promise<{ doc: Checkpoint | nul
 
 /** Insert a `pending` doc — the scan request the watchtower's change stream picks up. */
 export async function insertPending(p: { model: string; declared: string; path: string }): Promise<void> {
+  // No simulated results: the fixture is validation data, and a canned verdict would be made up.
+  if (source === "fixture") throw new Error(FIXTURE_SCAN_NOTE);
   const doc: Checkpoint = { _id: p.model, model: p.model, declared: p.declared, path: p.path, status: "pending" };
-  if (source === "fixture") {
-    // Re-scan is fine — drop any prior copy so the demo repeats cleanly.
-    const f = fixture();
-    const i = f.findIndex((c) => c._id === doc._id);
-    if (i >= 0) f.splice(i, 1);
-    f.unshift(doc);
-    simulateScan(doc);
-    return;
-  }
   // Delete-then-insert, not upsert: the watchtower matches operationType "insert" only, so a fresh
   // insert is what re-fires the change stream. This lets the demo re-run the same id repeatedly.
   const c = await coll();
@@ -57,33 +50,21 @@ export async function insertPending(p: { model: string; declared: string; path: 
   await c.insertOne(doc);
 }
 
-/** Fixture only: walk a pending doc through both progress stages, then fill it. ~16s, like a short real scan. */
-function simulateScan(doc: Checkpoint) {
-  const steps: Checkpoint["progress"][] = [
-    ...Array.from({ length: 16 }, (_, i) => ({ stage: "fingerprint" as const, done: (i + 1) * 16, total: 256 })),
-    ...Array.from({ length: 16 }, (_, i) => ({ stage: "refusal" as const, done: i + 1, total: 16 })),
-  ];
-  let i = 0;
-  const tick = setInterval(() => {
-    const cur = fixture().find((c) => c._id === doc._id);
-    if (!cur) return clearInterval(tick);
-    if (i < steps.length) { cur.progress = steps[i++]; return; }
-    clearInterval(tick);
-    Object.assign(cur, simulatedResult({ model: doc.model, declared: doc.declared }));
-    delete cur.progress;
-    delete cur.path;
-  }, 500);
-}
+/** Known-stripped library: run 2 docs by judged behavior, Atlas docs by declared recipe (unchanged). */
+const knownStripped = (d: Checkpoint) =>
+  d.run2 ? d.run2.unsafe_qwen3guard >= 0.5 : KNOWN_BAD.includes(d.declared);
 
-/** Lean of one checkpoint between its base and the known-imposter library (see metrics.lean). */
+/** Lean of one checkpoint between its base and the known-stripped library (see metrics.lean). */
 export async function leanOf(doc: Checkpoint, base: Checkpoint): Promise<Lean | null> {
   if (!doc.fingerprint || !doc.control || !base.fingerprint || !doc.refusal_specific_layers) return null;
+  // drift_v2 Atlas docs store the base's harmless mean as `control`, so it stands in for the base's own.
+  const baseCtrl = base.control ?? doc.control;
   const all = source === "fixture" ? fixture()
     : await (await coll()).find({ declared: { $in: KNOWN_BAD }, status: "scanned" }).toArray();
   const imposters = all
-    .filter((d) => d._id !== doc._id && KNOWN_BAD.includes(d.declared) && d.fingerprint && d.control)
-    .map((d) => ({ model: d.model, retained: retainedPerLayer(d.fingerprint!, base.fingerprint!, d.control!) }));
-  return lean(retainedPerLayer(doc.fingerprint, base.fingerprint, doc.control), doc.refusal_specific_layers, imposters);
+    .filter((d) => d._id !== doc._id && knownStripped(d) && d.fingerprint && d.control)
+    .map((d) => ({ model: d.model, retained: retainedPerLayer(d.fingerprint!, d.control!, base.fingerprint!, baseCtrl) }));
+  return lean(retainedPerLayer(doc.fingerprint, doc.control, base.fingerprint, baseCtrl), doc.refusal_specific_layers, imposters);
 }
 
 function cosine(a: number[], b: number[]): number {
@@ -101,7 +82,7 @@ export async function nearestKnownBad(
   fingerprint: number[], excludeId: string, k = 3,
 ): Promise<{ neighbors: Neighbor[]; method: "vectorSearch" | "cosine" }> {
   const byCosine = (docs: Checkpoint[]) => docs
-    .filter((d) => d._id !== excludeId && KNOWN_BAD.includes(d.declared) && d.fingerprint)
+    .filter((d) => d._id !== excludeId && knownStripped(d) && d.fingerprint)
     .map((d) => ({ model: d.model, declared: d.declared, score: (1 + cosine(fingerprint, d.fingerprint!)) / 2 }))
     .sort((a, b) => b.score - a.score)
     .slice(0, k);

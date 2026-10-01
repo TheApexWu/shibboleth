@@ -1,12 +1,14 @@
-import { nearLine } from "@/lib/metrics";
+import { behavesStripped } from "@/lib/behavior";
 import type { Checkpoint } from "@/lib/types";
 
-// Status colours never carry meaning alone: every badge has an icon and a word.
+// Status colours never carry meaning alone: every badge has an icon and a word. The verdict is behavior.
 export function VerdictBadge({ c }: { c: Checkpoint }) {
   if (c.status === "pending") return <span className="badge pending"><span className="spin">◌</span> scanning</span>;
   if (c.status === "error") return <span className="badge error" title={c.error}>! error</span>;
-  if (c.verdict === "regressed") return <span className="badge regressed"><span className="glyph">שׂ</span> regressed</span>;
-  return <span className="badge intact"><span className="glyph">שׁ</span> intact</span>;
+  const s = behavesStripped(c);
+  if (s == null) return <span className="badge claim">behavior not measured</span>;
+  if (s) return <span className="badge regressed"><span className="glyph">שׂ</span> behaves stripped</span>;
+  return <span className="badge intact"><span className="glyph">שׁ</span> behaves safe</span>;
 }
 
 export function ClaimBadge({ declared }: { declared: string }) {
@@ -23,16 +25,13 @@ export function ModelName({ id }: { id: string }) {
   );
 }
 
+/** Distance from the base (drift score): 0 = like the base, 1 = far from it. A distance, not a verdict. */
 export function DriftBar({ drift }: { drift?: number }) {
   if (drift == null) return <span className="num">—</span>;
   return (
     <span className="num">
-      <span className="driftbar" aria-hidden>
-        <i className={drift > 0.5 ? "hot" : ""} style={{ width: `${drift * 100}%` }} />
-        <b />
-      </span>
+      <span className="driftbar" aria-hidden><i style={{ width: `${drift * 100}%` }} /></span>
       {drift.toFixed(2)}
-      {nearLine(drift) && <span className="near" title="Near the 0.5 line: the refusal test decides">near line</span>}
     </span>
   );
 }
