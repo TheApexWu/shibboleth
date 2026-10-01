@@ -23,6 +23,24 @@ export interface Checkpoint {
   scanned_at?: string;
   /** Proposed (agreed with Alex, pending schema PR): set on a pending doc while the scan runs. */
   progress?: Progress;
+  /** Validation run 2 fixture only (validation/run2/report/make_web_fixture.py); absent on Atlas docs. */
+  run2?: Run2;
+}
+
+export interface Run2 {
+  name: string;
+  split: string;
+  stratum: string;
+  method: string | null;
+  /** "stripped" | "benign" | "excluded: ..." (declared and judged behavior disagree) | null */
+  label: string | null;
+  /** Share of replies to 88 harmful prompts judged unsafe by Qwen3Guard-Gen-4B / Granite Guardian 3.0-2B. */
+  unsafe_qwen3guard: number;
+  harm_granite: number;
+  E1: number;
+  rho: number;
+  zsum: number;
+  drift_ci: number[];
 }
 
 export interface Progress {

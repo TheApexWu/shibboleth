@@ -1,20 +1,20 @@
 "use client";
-// Per-layer projection onto the base refusal direction. One y-axis, three lines:
-// base on harmful prompts (the signal to keep), this checkpoint on the same prompts, and the base on
-// harmless prompts (the floor). The shaded span is the display band, where refusal concentrates
-// (docs/SCHEMA.md); drift itself is scored over `refusal_specific_layers`.
+// Per-layer projection onto the base refusal direction. One y-axis: base and this checkpoint on harmful
+// prompts (solid), base on harmless prompts (dashed), and on run 2 docs this checkpoint on harmless prompts
+// too, since drift_v3 compares each model's own harmful-minus-harmless gap. The shaded span is the
+// display band, where the base's gap peaks (docs/SCHEMA.md); drift is scored over `refusal_specific_layers`.
 import { useRef, useState } from "react";
 
-interface Props { fingerprint: number[]; base: number[]; control: number[]; band: number[]; isBase: boolean; name: string }
+interface Props { fingerprint: number[]; base: number[]; control: number[]; cpControl?: number[]; band: number[]; isBase: boolean; name: string }
 
 const W = 720, H = 300, M = { l: 44, r: 24, t: 16, b: 32 };
 
-export default function FingerprintChart({ fingerprint, base, control, band, isBase, name }: Props) {
+export default function FingerprintChart({ fingerprint, base, control, cpControl, band, isBase, name }: Props) {
   const [hover, setHover] = useState<number | null>(null);
   const [table, setTable] = useState(false);
   const svg = useRef<SVGSVGElement>(null);
   const n = fingerprint.length;
-  const all = [...fingerprint, ...base, ...control];
+  const all = [...fingerprint, ...base, ...control, ...(cpControl ?? [])];
   const lo = Math.min(0, ...all), hi = Math.max(...all);
   const x = (L: number) => M.l + (L / (n - 1)) * (W - M.l - M.r);
   const y = (v: number) => M.t + (1 - (v - lo) / (hi - lo || 1)) * (H - M.t - M.b);
@@ -27,6 +27,7 @@ export default function FingerprintChart({ fingerprint, base, control, band, isB
     { key: "base", label: "base · harmful", vs: base, color: "var(--series-1)", dash: undefined },
     ...(isBase ? [] : [{ key: "cp", label: "this checkpoint", vs: fingerprint, color: "var(--series-2)", dash: undefined }]),
     { key: "ctrl", label: "base · harmless", vs: control, color: "var(--muted)", dash: "4 4" },
+    ...(cpControl ? [{ key: "cpctrl", label: "this checkpoint · harmless", vs: cpControl, color: "var(--series-2)", dash: "4 4" }] : []),
   ];
 
   function onMove(e: React.MouseEvent) {
@@ -43,7 +44,7 @@ export default function FingerprintChart({ fingerprint, base, control, band, isB
           {series.map((s) => (
             <span key={s.key}><span className="sw" style={{ background: s.color, height: 3, verticalAlign: 3 }} />{s.label}</span>
           ))}
-          <span><span className="sw" style={{ background: "var(--band)", outline: "1px solid var(--grid)" }} />where refusal concentrates</span>
+          <span><span className="sw" style={{ background: "var(--band)", outline: "1px solid var(--grid)" }} />where the base signal peaks</span>
         </div>
         <button onClick={() => setTable((t) => !t)} style={{ background: "transparent", color: "var(--ink-2)", padding: "4px 10px", fontSize: 12 }}>
           {table ? "Chart" : "Table"}
@@ -53,9 +54,9 @@ export default function FingerprintChart({ fingerprint, base, control, band, isB
       {table ? (
         <div className="scroll-x" style={{ maxHeight: 320, overflowY: "auto" }}>
           <table className="num">
-            <thead><tr><th>Layer</th><th>Base · harmful</th>{!isBase && <th>This checkpoint</th>}<th>Base · harmless</th><th>Band</th></tr></thead>
-            <tbody>{fingerprint.map((v, L) => (
-              <tr key={L}><td>{L}</td><td>{base[L].toFixed(3)}</td>{!isBase && <td>{v.toFixed(3)}</td>}<td>{control[L].toFixed(3)}</td><td>{inBand.has(L) ? "●" : ""}</td></tr>
+            <thead><tr>{["Layer", ...series.map((s) => s.label), "Band"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
+            <tbody>{fingerprint.map((_, L) => (
+              <tr key={L}><td>{L}</td>{series.map((s) => <td key={s.key}>{s.vs[L].toFixed(3)}</td>)}<td>{inBand.has(L) ? "●" : ""}</td></tr>
             ))}</tbody>
           </table>
         </div>

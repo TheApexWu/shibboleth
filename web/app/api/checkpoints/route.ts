@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { FIXTURE_SCAN_NOTE } from "@/lib/behavior";
 import { insertPending, listCheckpoints, source } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,7 @@ export async function GET() {
 const DECLARED = new Set(["benign", "uncensored", "abliterated"]);
 
 export async function POST(req: Request) {
+  if (source === "fixture") return NextResponse.json({ source, error: FIXTURE_SCAN_NOTE }, { status: 501 });
   const body = await req.json().catch(() => ({}));
   const model = String(body.model ?? "").trim();
   const declared = String(body.declared ?? "").trim();

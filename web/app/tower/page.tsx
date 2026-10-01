@@ -7,6 +7,7 @@ import ScanPanel from "@/components/ScanPanel";
 import Seal from "@/components/Seal";
 import type { TowerSpec } from "@/components/Tower3D";
 import VerdictDetail from "@/components/VerdictDetail";
+import { behavesStripped, behaviorWord, featured, glyph, mismatch, tone, unsafeText } from "@/lib/behavior";
 import { useCatalog } from "@/lib/live";
 import { HOLLOW_BELOW, displayBand, displayName, pct, retainedPerLayer, signalPerLayer } from "@/lib/metrics";
 import { isScanned, type Checkpoint } from "@/lib/types";
@@ -14,7 +15,6 @@ import { isScanned, type Checkpoint } from "@/lib/types";
 const Tower3D = dynamic(() => import("@/components/Tower3D"), { ssr: false });
 const MAX_TOWERS = 7;
 const short = displayName;
-const glyph = (c: Checkpoint) => (c.verdict === "regressed" ? "שׂ" : "שׁ");
 
 export default function Page() {
   return <Suspense><TowerPage /></Suspense>;
@@ -28,18 +28,16 @@ function TowerPage() {
   const n = base?.n_layers ?? 28;
   const band = useMemo(() => (base?.fingerprint && base.control ? displayBand(base.fingerprint, base.control) : []), [base]);
 
-  // Demo hero: TWO towers — the trusted base and one imposter. A scan in flight wins (watch it
-  // fill), otherwise the worst regressed model. The full fleet lives in the Catalog, not here.
+  // Demo hero: TWO towers, the trusted base and one derivative. A scan in flight wins (watch it
+  // fill), then the ?id= the Catalog linked to, then a derivative that behaves stripped (newest scan
+  // first, so the one you just scanned stays on screen). The full fleet lives in the Catalog.
   const shown = useMemo(() => {
     if (!base) return cps.slice(0, Math.min(2, MAX_TOWERS));
     const busy = cps.find((c) => c !== base && c.status !== "scanned");
-    // Prefer the most-recently-caught imposter, so the one you just scanned stays on screen
-    // instead of snapping back to the worst-drift model right after the reveal.
-    const recent = cps.filter((c) => c !== base && c.status === "scanned" && c.verdict === "regressed")
-      .sort((a, b) => (b.scanned_at ?? "").localeCompare(a.scanned_at ?? ""))[0];
-    const partner = busy ?? recent ?? cps.find((c) => c !== base && c.status === "scanned");
+    const wanted = cps.find((c) => c !== base && c._id === want && c.status === "scanned");
+    const partner = busy ?? wanted ?? featured(cps) ?? cps.find((c) => c !== base && c.status === "scanned");
     return partner ? [base, partner] : [base];
-  }, [cps, base]);
+  }, [cps, base, want]);
 
   // Detect pending → scanned flips during render, so the rebuild that shows the new tower also animates it.
   const prevStatus = useRef(new Map<string, string>());
@@ -65,20 +63,22 @@ function TowerPage() {
     }
     return {
       id: c._id, name: short(c.model), state: "scanned", band, scored: c.refusal_specific_layers,
-      signal: signalPerLayer(c.fingerprint, c.control, base.fingerprint),
-      retained: retainedPerLayer(c.fingerprint, base.fingerprint, c.control),
-      label: <><span className={`glyph ${c.verdict === "regressed" ? "imposter" : "genuine"}`}>{glyph(c)}</span>
+      signal: signalPerLayer(c.fingerprint, c.control, base.fingerprint, base.control ?? c.control),
+      retained: retainedPerLayer(c.fingerprint, c.control, base.fingerprint, base.control ?? c.control),
+      label: <><span className={`glyph ${behavesStripped(c) ? "imposter" : "genuine"}`}>{glyph(c)}</span>
         <span className="name">{c._id === base._id ? "BASE · TRUSTED" : short(c.model)}</span>
-        <span className={`verdict ${c.verdict}`}>{c._id === base._id ? `reference · refuses ${pct(c.behavioral_refusal_rate)}`
-          : <>{c.verdict === "regressed" ? "REGRESSED" : "intact"} · drift {c.drift_score.toFixed(2)}<br />refuses {pct(c.behavioral_refusal_rate)}</>}</span></>,
+        <span className={`verdict ${tone(c)}`}>{c._id === base._id ? `reference · ${unsafeText(c)}`
+          : <>{behavesStripped(c) ? "BEHAVES STRIPPED" : behaviorWord(c)} · {unsafeText(c)}<br />
+            {mismatch(c) ? <>{mismatch(c)}<br /></> : null}distance from base {c.drift_score.toFixed(2)}</>}</span></>,
     };
   }), [shown, base, band]);
 
-  // Default selection: the first imposter, mid-band. New verdicts take the selection and stamp.
+  // Default selection: the derivative that behaves stripped, mid-band. New verdicts take the selection and stamp.
   useEffect(() => {
     if (selected || !specs.length) return;
     const pickSpec = specs.find((s) => s.id === want && s.state === "scanned")
-      ?? specs.find((s) => shown.find((c) => c._id === s.id)?.verdict === "regressed") ?? specs[0];
+      ?? specs.find((s) => { const c = shown.find((x) => x._id === s.id); return c && c.declared !== "base" && behavesStripped(c); })
+      ?? specs[0];
     const b = pickSpec.band;
     setSelected({ id: pickSpec.id, layer: b.length ? b[b.length >> 1] : 0 });
   }, [specs, selected, shown, want]);
@@ -130,9 +130,11 @@ function TowerPage() {
       <p className="eyebrow">Tower</p>
       <h1>Which one had its safety removed?</h1>
       <p className="lede">
-        Each tower is a model; each disc is one of its {n} layers. Colour is how strongly the model&apos;s refusal
-        signal fires at that layer: pale clay is weak, deep purple is strong. Gold marks where refusal
-        concentrates, though the signal runs the whole tower. Strip the safety and the tower goes hollow.
+        Each tower is a model; each disc is one of its {n} layers. Disc colour is the signal along the run-2
+        refusal direction at that layer: how far apart the model&apos;s activity sits on harmful and harmless
+        prompts, pale clay weak, deep purple strong. A scored layer keeping under {Math.round(HOLLOW_BELOW * 100)}%
+        of the base&apos;s gap is drawn hollow. Run 2 found this direction no more telling than a random one, so
+        the discs are evidence under test; the label above each tower is its judged behavior.
       </p>
       {error && <div className="banner">Couldn&apos;t reach Atlas: <code>{error}</code></div>}
 
@@ -145,16 +147,17 @@ function TowerPage() {
                 {scannedSpecs.map((s) => {
                   const c = cps.find((x) => x._id === s.id)!;
                   // same towers as the side view
-                  return <button key={s.id} className={`ghost ${s.id === sel.id ? "on" : ""}`} onClick={() => setSelected({ id: s.id, layer: selected!.layer })}>
+                  return <button key={s.id} className={`ghost ${s.id === sel.id ? "on" : ""}`} onClick={() => setSelected({ id: s.id, layer: selected!.layer })} title={behaviorWord(c)}>
                     {c.declared === "base" ? "BASE" : short(c.model)} <span className="glyph">{glyph(c)}</span></button>;
                 })}
               </div>
               <Seal signal={sel.signal} retained={sel.retained!} band={sel.band} scored={sel.scored} layer={selected!.layer}
                 onLayer={(L) => setSelected({ id: sel.id, layer: L })}
-                center={<div className={selDoc.verdict === "regressed" ? "imposter" : "genuine"}>
+                center={<div className={behavesStripped(selDoc) ? "imposter" : "genuine"}>
                   <div className="glyph big">{glyph(selDoc)}</div>
                   <div className="nm">{selDoc.declared === "base" ? "BASE · trusted" : short(selDoc.model)}</div>
-                  <div className={`vd ${selDoc.verdict}`}>{selDoc.verdict === "regressed" ? `REGRESSED · drift ${selDoc.drift_score?.toFixed(2)}` : "intact"}</div>
+                  <div className={`vd ${tone(selDoc)}`}>{behaviorWord(selDoc)} · {unsafeText(selDoc)}</div>
+                  {mismatch(selDoc) && <div className="vd">{mismatch(selDoc)}</div>}
                 </div>} />
               <div className="seal-caption">↑↓ step layers · ←→ switch tower · space to sweep · layer 0 at the centre</div>
             </div>
@@ -169,21 +172,21 @@ function TowerPage() {
 
         {stamp && (
           <div className="stamp">
-            <div className={`glyph big ${stamp.verdict === "regressed" ? "imposter" : "genuine"}`}>{glyph(stamp)}</div>
-            <div className={`vn ${stamp.verdict}`}>{stamp.verdict === "regressed" ? "REGRESSED" : "INTACT"}</div>
-            <div className="vs">drift {stamp.drift_score?.toFixed(2)} · refuses {pct(stamp.behavioral_refusal_rate)}
-              {stamp.verdict === "regressed" ? " · safety band hollow" : " · safety band lit"}</div>
+            <div className={`glyph big ${behavesStripped(stamp) ? "imposter" : "genuine"}`}>{glyph(stamp)}</div>
+            <div className={`vn ${tone(stamp)}`}>{behaviorWord(stamp).toUpperCase()}</div>
+            <div className="vs">{unsafeText(stamp)} · distance from base {stamp.drift_score?.toFixed(2)}
+              {mismatch(stamp) ? ` · ${mismatch(stamp)}` : ""}</div>
           </div>
         )}
 
         {view === "side" && <>
-          <div className="stage-legend">weak <span className="ramp" /> strong refusal · <span className="glyph genuine">שׁ</span> genuine <span className="glyph imposter">שׂ</span> imposter</div>
+          <div className="stage-legend">weak <span className="ramp" /> strong signal · <span className="glyph genuine">שׁ</span> behaves safe <span className="glyph imposter">שׂ</span> behaves stripped</div>
           <div className="stage-hint">drag to rotate · scroll to zoom · click a disc · ↑↓ layers · ←→ towers</div>
         </>}
         <button className="scan-btn" onClick={() => setScanOpen(true)} disabled={!!inflight}>
           {inflight ? "◌ Scanning…" : "▶ Scan a new model"}
         </button>
-        {scanOpen && <ScanPanel onClose={() => setScanOpen(false)} onStarted={() => {}} />}
+        {scanOpen && <ScanPanel source={data?.source} onClose={() => setScanOpen(false)} onStarted={() => {}} />}
       </div>
 
       {selDoc && isScanned(selDoc) && sel?.signal && selected && (
@@ -192,14 +195,14 @@ function TowerPage() {
             <div className="k">Inspect layer</div>
             <div className="layer">Layer {selected.layer} <span className="dim">/ {n - 1}</span></div>
             <div className="kv"><span>model</span><b>{selDoc.declared === "base" ? "BASE" : short(selDoc.model)}</b></div>
-            <div className="kv"><span>refusal signal</span><b className="num">{sel.signal[selected.layer].toFixed(2)}</b></div>
-            <div className="kv"><span>kept vs. base at this layer</span><b className="num">{pct(sel.retained![selected.layer])}</b></div>
-            <div className="kv"><span>scored in drift</span><b>{sel.scored.includes(selected.layer) ? "yes" : "no"}</b></div>
+            <div className="kv"><span>signal (share of base&apos;s largest gap)</span><b className="num">{sel.signal[selected.layer].toFixed(2)}</b></div>
+            <div className="kv"><span>gap kept vs. base at this layer</span><b className="num">{pct(sel.retained![selected.layer])}</b></div>
+            <div className="kv"><span>scored in distance from base</span><b>{sel.scored.includes(selected.layer) ? "yes" : "no"}</b></div>
             <div className="kv band-state">
               {sel.scored.includes(selected.layer) && sel.retained![selected.layer] < HOLLOW_BELOW
                 ? <span style={{ color: "var(--critical)" }}>● signal lost at this layer (hollow)</span>
                 : <span style={{ color: "var(--good-text)" }}>● signal present at this layer</span>}
-              {sel.band.includes(selected.layer) && <span className="dim"> · where refusal concentrates</span>}
+              {sel.band.includes(selected.layer) && <span className="dim"> · where the base signal peaks</span>}
             </div>
             <Link href={`/inspect?id=${encodeURIComponent(selDoc._id)}`} className="more">Full evidence →</Link>
           </div>

@@ -30,9 +30,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </header>
           {source === "fixture" && (
             <div className="banner">
-              <strong>Demo fixture.</strong> <code>ATLAS_URI</code> is not set, so these views run on a snapshot of
-              the real Atlas documents (<code>web/lib/checkpoints.json</code>) and scans are simulated client-side.
-              Set it in <code>web/.env.local</code> to read the live cluster.
+              <strong>Demo fixture.</strong> <code>ATLAS_URI</code> is not set, so these views show validation run 2
+              data: 23 public checkpoints (<code>web/lib/checkpoints_run2.json</code>). Scanning is off; nothing here
+              is simulated. Set <code>ATLAS_URI</code> in <code>web/.env.local</code> to read the live cluster.
             </div>
           )}
           {children}

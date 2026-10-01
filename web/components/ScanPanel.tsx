@@ -1,6 +1,9 @@
 "use client";
 // "▶ Scan a new model": inserts a pending doc. Prefilled from NEXT_PUBLIC_DEMO_* so nobody types live.
+// The demo fixture has no scanner, so there the panel explains where scans run instead.
 import { useState } from "react";
+import { FIXTURE_SCAN_NOTE } from "@/lib/behavior";
+import type { Source } from "@/lib/types";
 
 const DEMO = {
   model: process.env.NEXT_PUBLIC_DEMO_MODEL ?? "",
@@ -8,7 +11,7 @@ const DEMO = {
   path: process.env.NEXT_PUBLIC_DEMO_PATH ?? "",
 };
 
-export default function ScanPanel({ onClose, onStarted }: { onClose: () => void; onStarted: (id: string) => void }) {
+export default function ScanPanel({ onClose, onStarted, source }: { onClose: () => void; onStarted: (id: string) => void; source?: Source }) {
   const [model, setModel] = useState(DEMO.model);
   const [declared, setDeclared] = useState(DEMO.declared);
   const [path, setPath] = useState(DEMO.path);
@@ -26,6 +29,20 @@ export default function ScanPanel({ onClose, onStarted }: { onClose: () => void;
     if (r.ok) { onStarted(model); onClose(); } else setErr(j.error);
   }
 
+  if (source === "fixture") {
+    return (
+      <div className="modal-bg" onClick={onClose}>
+        <div className="card modal" onClick={(e) => e.stopPropagation()}>
+          <h2>Scan a new model</h2>
+          <p>{FIXTURE_SCAN_NOTE}</p>
+          <div className="row" style={{ marginTop: 14, justifyContent: "flex-end" }}>
+            <button type="button" className="ghost" onClick={onClose} autoFocus>Close</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="modal-bg" onClick={onClose}>
       <form className="card modal" onSubmit={submit} onClick={(e) => e.stopPropagation()}>
@@ -33,7 +50,7 @@ export default function ScanPanel({ onClose, onStarted }: { onClose: () => void;
         <p className="hint" style={{ marginTop: -4 }}>Inserts a <code>pending</code> document. Atlas&apos;s change stream wakes the watchtower, which reads the model on the compute box.</p>
         <div style={{ display: "grid", gap: 10 }}>
           <label>Model id<input value={model} onChange={(e) => setModel(e.target.value)} placeholder="org/Qwen2.5-1.5B-something" required autoFocus /></label>
-          <label>Claims to be
+          <label>Declared as
             <select value={declared} onChange={(e) => setDeclared(e.target.value)}>
               <option value="benign">benign</option><option value="uncensored">uncensored</option><option value="abliterated">abliterated</option>
             </select>

@@ -1,6 +1,6 @@
 "use client";
 // The side view: one tower of 28 discs per checkpoint, built from the real Atlas document.
-// Disc colour = refusal signal at that layer (clay weak → purple strong). A scored layer that kept
+// Disc colour = harmful-minus-harmless gap along the refusal direction at that layer (clay weak → purple strong). A scored layer that kept
 // less than HOLLOW_BELOW of the base's signal is drawn hollow; the gold label marks the display band. Pending docs are ghost towers with a
 // "reading" sweep; when one flips to scanned, its discs fill bottom-to-top from the real numbers.
 import { useEffect, useRef } from "react";
@@ -11,7 +11,7 @@ export interface TowerSpec {
   id: string;
   name: string;
   state: "scanned" | "pending" | "error";
-  /** Display-only band (where refusal concentrates) — labelled, not scored. */
+  /** Display-only band (where the base's gap peaks), labelled, not scored. */
   band: number[];
   /** Scored layers (`refusal_specific_layers`) — a scored layer that lost its signal is drawn hollow. */
   scored: number[];
@@ -230,7 +230,7 @@ export default function Tower3D({ towers, nLayers, selected, onSelect, reveal }:
           {t.label}
         </div>
       ))}
-      <div ref={bandEl} className="band-label">where refusal<br />concentrates</div>
+      <div ref={bandEl} className="band-label">base signal<br />peaks here</div>
     </div>
   );
 }
