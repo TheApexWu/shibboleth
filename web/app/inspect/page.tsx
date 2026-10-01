@@ -29,6 +29,10 @@ function InspectView() {
         the dashed harmless-prompt floor. Shading marks where refusal concentrates; drift is scored over the
         layers listed above.
       </p>
+      <div className="banner">
+        These verdicts use the hackathon metric drift_v2, superseded by the validation runs.{" "}
+        <Link href="/audit">See validation run 2</Link>.
+      </div>
       <div className="row" style={{ marginBottom: 20, alignItems: "end" }}>
         <Picker {...picked} />
         {doc && <Link href={`/tower?id=${encodeURIComponent(doc._id)}`} style={{ fontSize: 14, color: "var(--ink-2)" }}>← See the tower</Link>}

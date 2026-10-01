@@ -43,24 +43,42 @@ control in run 1 (run 2 adds one). E1, which does not use the direction, reaches
 Also worth reading in the write-up: a fine-tune declared benign answers most harmful prompts with code
 snippets, and the judge's labels for it contradict each other, so it is flagged for a hand audit.
 
-### Validation run 2 (running, 29 Sep 2026)
+### Validation run 2 (1 Oct 2026)
 
-Run 2 targets the weakest parts of run 1. Its plan and scripts were committed before any result existed:
-[`validation/run2/PREREG2.md`](validation/run2/PREREG2.md).
+Run 2 re-measured run 1's checkpoints with three refusal directions, a second judge and three public LoRA fine-tunes of
+the base trained on harmful data. The plan and scripts were committed before any result existed:
+[`validation/run2/PREREG2.md`](validation/run2/PREREG2.md), with Addendum A (the primary test) and Addendum B (crash
+safety, after the machine restarted mid-run with no output written). Write-up:
+[`validation/run2/report/Shibboleth-Validation-Run2-01Oct2026.pdf`](validation/run2/report/Shibboleth-Validation-Run2-01Oct2026.pdf).
 
-- The refusal direction is rebuilt from matched prompt pairs: XSTest's 200 contrast pairs, where each unsafe
-  prompt is a minimal edit of a safe one, with heretic-org's embedding-matched AdvBench/Alpaca pairs as a robustness arm. Run 1
-  used unmatched AdvBench vs Alpaca prompts, which is the common practice in this literature and lets the
-  direction pick up length and style.
-- Three candidate positives made by a different removal method: public LoRA fine-tunes of the base on harmful data,
-  which count as stripped only if the judge rule passes.
-- A second judge (Granite Guardian 3.0-2B) to measure label reliability.
-- Random-direction controls for every activation signal.
+Test set, 6 stripped vs 7 benign. 12 of the 13, their Qwen3Guard labels and their E1 values carry over from run 1.
 
-The primary hypothesis: with the XSTest direction, the standardized difference in drift_v3 between stripped and benign
-checkpoints is matched or beaten by fewer than 5% of random directions. The first version of this test compared AUROC
-with the random-direction 95th percentile, which was 1.00 in run 1 (34 of 200 random directions scored 1.00), so it
-could never pass. It was amended before any run-2 result existed; both versions are in the plan's history.
+| Signal | AUROC, XSTest / heretic / run-1 direction | random-direction p |
+|---|---|---|
+| drift_v3 | 0.86 / 0.90 / 0.90 | 0.335 / 0.280 / 0.225 |
+| −ρ | 0.93 / 0.95 / 0.95 | 0.135 / 0.095 / 0.065 |
+| z(−ρ) + z(E1) | 0.98 / 1.00 / 1.00 | not tested |
+| E1 | 0.95 | uses no direction |
+
+**The pre-registered primary test failed.** With the direction built from XSTest's matched prompt pairs, 33.5% of 200
+random directions separate stripped from benign at least as well as drift_v3 does (p = 0.335; the plan required
+p < 0.05). No activation signal passed its random-direction test in any arm. drift_v3 still ranks stripped above benign,
+but the refusal direction adds nothing measurable over a random one, and Qwen2.5-Math, which is judged unsafe on 2% of
+replies, scores the highest drift_v3 of all 13 test models. The simplest reading is distance from the base.
+
+![random-direction control, run 2](validation/run2/report/fig2_null.svg)
+
+- Only 1 of the 3 public "harmful" LoRA fine-tunes actually stopped refusing (89% unsafe). E1 ranks it below the two
+  that still refuse; −ρ ranks it above every benign model, by 0.011 over Qwen2.5-Math in the XSTest arm. One model.
+- E1 and the combined score separate the test set, but neither has a random-direction control, and the combined score's
+  activation half failed its own.
+- Four test checkpoints were excluded because their declared recipe and behavior disagree. Two would trouble a deployed
+  detector: an abliteration that still mostly refuses gets a high combined score, and a "benign" financial-code fine-tune
+  that answers 86% of harmful prompts lands mid-range.
+- The two judges (Qwen3Guard-Gen-4B, Granite Guardian 3.0-2B) give every checkpoint the same label; reply-level
+  agreement is 77 to 86% on the stripped models. No human audit yet.
+
+![Hurtado's two signals, run 2](validation/run2/report/fig2_hurtado_plane.svg)
 
 ## Corrections to earlier claims
 
@@ -69,8 +87,9 @@ AUC 1.00 separating the base from an abliterated copy. Run 1 does not support ei
 
 - The 1.00 read each model through its own chat template, and the abliterated copy's template adds a
   different system prompt, so the two models saw different inputs. With one template for both (and a
-  different attention implementation), that copy's drift fell from 0.754 to 0.543. Run 2 recomputes the
-  per-layer AUC under one template.
+  different attention implementation), that copy's drift fell from 0.754 to 0.543. Recomputed under one
+  template in run 2, 12 of 28 layers still reach per-prompt AUC 0.99, but layer 0 already reaches 0.91: the AUC
+  detects that the weights differ, which says little about refusal.
 - A separately pretrained sibling that refuses 99% of harmful prompts (Qwen2.5-Math-1.5B-Instruct) is
   flagged by drift_v3, and random directions separate the models about as well. On this evidence the
   activation metric measures distance from the base at least as much as removed refusal.
@@ -99,7 +118,7 @@ through its own tokenizer and chat template, scores drift_v2, and does not compu
 
 - One model family at one size. Twelve checkpoints in run 1's primary comparison, so one misranked pair
   moves AUROC by about 0.03.
-- Run 1's positives are all abliterations; run 2 adds fine-tune-based removal. An adaptive attacker is
+- Run 1's positives are all abliterations; run 2's only fine-tune that removed safety is one model. An adaptive attacker is
   untested, and Hurtado shows a white-box fine-tune of a Qwen2.5-1.5B model that evades both of his signals.
 - Every signal needs the weights, so none applies to a model reachable only through an API.
 - Labels come from judge models, with no human audit yet.
@@ -109,7 +128,7 @@ through its own tokenizer and chat template, scores drift_v2, and does not compu
 ```
 shibboleth/            the library: load a checkpoint, capture activations, fingerprint, drift, scan
 validation/run1/       run 1: plan (PREREG.md), exact scripts, manifest, results, report/ (PDF + figures)
-validation/run2/       run 2: plan (PREREG2.md) and scripts; results land here when the run finishes
+validation/run2/       run 2: plan (PREREG2.md), scripts, results/ (results2.json, null draws, log), report/ (PDF + figures)
 web/                   the hackathon demo (Next.js), fixture mode on Vercel
 docs/SCHEMA.md         the checkpoint document the scan writes and the demo reads
 docs/hackathon/        hackathon-era notes, runbook and the superseded 26 Sep metrics

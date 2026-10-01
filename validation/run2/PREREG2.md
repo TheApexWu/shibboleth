@@ -55,3 +55,20 @@ difference in drift_v3 between stripped and benign test checkpoints, (mean strip
 least as large in fewer than 5% of the 200 random directions (empirical p < 0.05). The same statistic and p are reported
 for drift_v3 cosine and -rho in every arm; the AUROC nulls and the original p95 comparison are still reported.
 analyze2.py sha256 now a4e89ed58f246f62; every other hash above is unchanged.
+
+## Addendum B: crash safety, before any run-2 output exists
+Written 2026-09-30 22:10 EDT. The Mini restarted at 11:46 on 29 Sep while base_filter was still judging, and stayed at
+the FileVault unlock screen until 30 Sep 21:56. No run-2 output had been written (no filter.json, base_run2.pt, residual
+or label), and the three merged checkpoints still match the hashes above. The chain was restarted at 22:03 and stopped
+again a few minutes later, still inside base_filter, to add the following. None of it changes a prompt, model, label
+rule, metric, hypothesis or threshold.
+- judges2.py writes Qwen3Guard label files through a .tmp file and a rename, as the Granite pass already did, so a crash
+  cannot leave a short file that the resume check treats as finished.
+- finalize2.sh sets aside a saved filter.json or base_run2.pt that does not load and redoes that step, and stops before
+  judging unless every manifest checkpoint has finished capture.
+- supervise2.sh retries a failed chain up to twice; each step resumes from its saved outputs. On the third attempt a
+  checkpoint that still fails capture is left out, the run completes, and STATUS reads "DONE ... INCOMPLETE, missing:"
+  with the names. Any such run is reported as a deviation.
+- The CW crawl (the job whose qwen3:8b model the Ollama gate waits on) is paused for the night.
+New hashes: judges2.py 9ae6f41b859381cc · finalize2.sh 50eaf1b3b1341a5b · supervise2.sh 31b04bf0661d96d2.
+Every other hash above is unchanged.

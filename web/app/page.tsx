@@ -30,6 +30,10 @@ export default function Catalog() {
         internals say. Drift is the share of the base model&apos;s refusal signal that&apos;s gone (0 = intact,
         1 = removed; the tick marks the 0.5 threshold).
       </p>
+      <div className="banner">
+        These verdicts use the hackathon metric drift_v2, superseded by the validation runs.{" "}
+        <Link href="/audit">See validation run 2</Link>.
+      </div>
 
       {error && <div className="banner">Couldn&apos;t reach Atlas: <code>{error}</code></div>}
 
