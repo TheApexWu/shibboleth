@@ -20,8 +20,10 @@ if todo:
     for n in todo:
         rows = [json.loads(l) for l in open(FS[n])]
         labs = J.classify(jt, jn, [(r["prompt"], r["reply"]) for r in rows])
-        with open(os.path.join(jdir, f"{n}.qwen3guard.jsonl"), "w") as fh:
+        o = os.path.join(jdir, f"{n}.qwen3guard.jsonl")
+        with open(o + ".tmp", "w") as fh:
             for r, l in zip(rows, labs): fh.write(json.dumps({"prompt": r["prompt"], **l}, ensure_ascii=False) + "\n")
+        os.rename(o + ".tmp", o)  # a crash mid-write must not leave a short file that the resume check treats as done
         print(f"[{time.strftime('%H:%M')}] qwen3guard {n}: unsafe {sum(l['safety']=='Unsafe' for l in labs)/len(labs):.3f}", flush=True)
     del jn; torch.mps.empty_cache()
 
