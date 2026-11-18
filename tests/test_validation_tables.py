@@ -133,10 +133,10 @@ class Run2(unittest.TestCase):
         auroc_share = sum(a >= v3 for a in self.nulls["nulls"]["xstest"]["v3"]) / 200
         self.assertEqual(auroc_share, self.primary["xstest_v3_null"]["share_ge_observed"])
         opening = PROSE.split("## Results", 1)[0]
-        self.assertIn(f"ranks stripped above benign at AUROC {e1:.2f}", opening)
-        self.assertIn(f"failed its random-direction control (p = {p:.3f}; the plan required p < 0.05)", opening)
-        self.assertIn(f"it is {obs:.2f}, and {p:.1%} of 200 random directions match or beat it (p = {p:.3f};", PROSE)
-        self.assertIn(f"By AUROC, {auroc_share:.0%} of the random directions score at least drift_v3's {v3:.2f}.", PROSE)
+        self.assertIn(f"weight-edit energy E1 scores AUROC {e1:.2f}", opening)
+        self.assertIn(f"failed its random-direction control (p = {p:.3f}; needed p < 0.05)", opening)
+        self.assertIn(f"it scores {obs:.2f} and {p:.1%} match or beat it (p = {p:.3f};", PROSE)
+        self.assertIn(f"drift_v3 has AUROC {v3:.2f}, and {auroc_share:.0%} of 200 random directions score at least that.", PROSE)
 
 
 class Run1(unittest.TestCase):
