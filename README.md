@@ -134,6 +134,7 @@ through its own tokenizer and chat template, scores drift_v2, and does not compu
 shibboleth/            the library: load a checkpoint, capture activations, fingerprint, drift, scan
 validation/run1/       run 1: plan (PREREG.md), exact scripts, manifest, results, report/ (PDF + figures)
 validation/run2/       run 2: plan (PREREG2.md), scripts, results/ (results2.json, null draws, log), report/ (PDF + figures)
+tests/                 rebuilds both runs' AUROC tables from the committed results and checks them against this README
 web/                   the hackathon demo (Next.js); without Atlas it reads the run 2 fixture
 docs/SCHEMA.md         the checkpoint document the scan writes and the demo reads
 docs/hackathon/        hackathon-era notes, runbook and the superseded 26 Sep metrics
