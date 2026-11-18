@@ -1,8 +1,11 @@
 # Shibboleth
 
 Shibboleth reads an open-weight model's internal activations and weight edits to detect when its refusal
-behavior has been removed, compared against a trusted base checkpoint. It started at the MongoDB Harness
-Engineering hackathon (Sep 2026) and continues as solo research by Alex Wu.
+behavior has been removed, compared against a trusted base checkpoint. In the second pre-registered validation
+run (6 stripped vs 7 benign public Qwen2.5-1.5B checkpoints), weight-edit energy E1, which uses no refusal
+direction, ranks stripped above benign at AUROC 0.95. The pre-registered primary activation metric, drift_v3,
+failed its random-direction control (p = 0.335; the plan required p < 0.05), and the report says so. This is
+solo research by Alex Wu that started at the MongoDB Harness Engineering hackathon (Sep 2026).
 
 The project is now judged by pre-registered validation runs on public checkpoints, with labels taken from
 what each model actually does on harmful requests.
@@ -60,11 +63,13 @@ Test set, 6 stripped vs 7 benign. 12 of the 13, their Qwen3Guard labels and thei
 | z(−ρ) + z(E1) | 0.98 / 1.00 / 1.00 | not tested |
 | E1 | 0.95 | uses no direction |
 
-**The pre-registered primary test failed.** With the direction built from XSTest's matched prompt pairs, 33.5% of 200
-random directions separate stripped from benign at least as well as drift_v3 does (p = 0.335; the plan required
-p < 0.05). No activation signal passed its random-direction test in any arm. drift_v3 still ranks stripped above benign,
-but the refusal direction adds nothing measurable over a random one, and Qwen2.5-Math, which is judged unsafe on 2% of
-replies, scores the highest drift_v3 of all 13 test models. The simplest reading is distance from the base.
+**The pre-registered primary test failed.** The test statistic is the standardized difference: mean drift_v3 of the
+stripped models minus that of the benign ones, divided by the pooled standard deviation. With the direction built from
+XSTest's matched prompt pairs it is 1.48, and 33.5% of 200 random directions match or beat it (p = 0.335; the plan
+required p < 0.05). By AUROC, 47% of the random directions score at least drift_v3's 0.86. No activation signal passed
+its random-direction test in any arm. drift_v3 still ranks stripped above benign, but the refusal direction adds nothing
+measurable over a random one, and Qwen2.5-Math, which is judged unsafe on 2% of replies, scores the highest drift_v3 of
+all 13 test models. The simplest reading is distance from the base.
 
 ![random-direction control, run 2](validation/run2/report/fig2_null.svg)
 
@@ -129,7 +134,7 @@ through its own tokenizer and chat template, scores drift_v2, and does not compu
 shibboleth/            the library: load a checkpoint, capture activations, fingerprint, drift, scan
 validation/run1/       run 1: plan (PREREG.md), exact scripts, manifest, results, report/ (PDF + figures)
 validation/run2/       run 2: plan (PREREG2.md), scripts, results/ (results2.json, null draws, log), report/ (PDF + figures)
-web/                   the hackathon demo (Next.js), fixture mode on Vercel
+web/                   the hackathon demo (Next.js); without Atlas it reads the run 2 fixture
 docs/SCHEMA.md         the checkpoint document the scan writes and the demo reads
 docs/hackathon/        hackathon-era notes, runbook and the superseded 26 Sep metrics
 corpus.json            the hackathon scan corpus
@@ -142,10 +147,15 @@ text are not committed; `validation/run1/README.md` lists what is left out and w
 ## The hackathon demo
 
 The MongoDB version stores each checkpoint's fingerprint as an Atlas document, uses a change stream to
-trigger scans and `$vectorSearch` to find the nearest known abliterated model. The web demo runs on a
-fixture of those documents: [web-vert-pi-mv4mwxv6mw.vercel.app](https://web-vert-pi-mv4mwxv6mw.vercel.app).
-Setup and runbook: [`docs/hackathon/RUNBOOK.md`](docs/hackathon/RUNBOOK.md). Its verdicts use the
-hackathon metric, which run 1 superseded.
+trigger scans and `$vectorSearch` to find the nearest known abliterated model. Without Atlas, the code in
+`web/` serves a read-only fixture of the 23 run 2 checkpoints: the verdict it shows is judged behavior,
+drift_v3 is shown as distance from the base, and the scan button explains that live scans need the compute
+machine instead of simulating one.
+
+The deployed copy at [web-vert-pi-mv4mwxv6mw.vercel.app](https://web-vert-pi-mv4mwxv6mw.vercel.app) predates
+that code. It shows the 11 hackathon checkpoints with drift_v2 verdicts, which run 1 superseded, and its
+simulated scan keeps results in one server instance's memory, so the catalog can come back stale after a scan.
+Setup and runbook: [`docs/hackathon/RUNBOOK.md`](docs/hackathon/RUNBOOK.md).
 
 ## Credits and references
 
